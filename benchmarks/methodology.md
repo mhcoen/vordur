@@ -22,6 +22,7 @@ This file is the protocol contract for benchmark metrics and figures.
 ## Split Protocol
 
 - Deterministic stratified dev/test split by `(suite, label_attack)` in `benchmarks/roc_pr_experiments.py` (`_stratified_split_indices`).
+- Duplicate texts (case-folded, with whitespace collapsed) form global groups, even across suites or labels. Each group uses its first record's stratum and stays whole through both the initial split and development-cap pruning. The cap is an upper bound, not a promise of an exact development count; a group too large to fit stays entirely in test. Corrected cap pruning can change split membership, so recompute operating points when changing splitter versions.
 - Defaults:
   - `split_seed=1337`
   - `dev_fraction=0.30`

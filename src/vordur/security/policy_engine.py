@@ -11,6 +11,7 @@ import time
 from vordur.security.types import (
     AuthorizationEvent,
     GateResult,
+    PolicyConfig,
     SecurityContext,
     TrustLevel,
     expiry_reason,
@@ -37,6 +38,21 @@ DESTRUCTIVE_TOOLS: frozenset[str] = frozenset(
         "create_gmail_draft",
     }
 )
+
+
+def is_destructive_tool(
+    tool: str,
+    policy: PolicyConfig,
+    default_tools: frozenset[str] = DESTRUCTIVE_TOOLS,
+) -> bool:
+    """One classification for authorization and automatic confirmation.
+
+    A deployment's declaration replaces the default set, including when it is
+    empty. PolicyEngine can supply its own constructor default; the Guard API
+    uses the built-in one, matching the engine it constructs.
+    """
+    declared = policy.destructive_tools
+    return tool in (default_tools if declared is None else declared)
 
 
 class PolicyEngine:
@@ -126,8 +142,7 @@ class PolicyEngine:
         # Destructive tools require explicit enablement. Same per-context
         # override as the client path, so a deployment's declaration holds in
         # server mode too rather than only where it happened to be read.
-        declared = ctx.policy.destructive_tools
-        if tool in (declared if declared is not None else self._destructive_tools):
+        if is_destructive_tool(tool, ctx.policy, self._destructive_tools):
             if not ctx.policy.enable_destructive:
                 return GateResult(
                     allowed=False,
@@ -153,8 +168,7 @@ class PolicyEngine:
         # A per-context override wins over the set this engine was built with,
         # so a host can name its own destructive tools through PolicyConfig
         # instead of reaching for a PolicyEngine it does not construct.
-        declared = ctx.policy.destructive_tools
-        is_destructive = tool in (declared if declared is not None else self._destructive_tools)
+        is_destructive = is_destructive_tool(tool, ctx.policy, self._destructive_tools)
 
         # Destructive tools must be enabled in policy
         if is_destructive and not ctx.policy.enable_destructive:

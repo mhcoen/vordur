@@ -75,9 +75,11 @@ class-to-policy mappings that a file cannot name, so it stays a Python object.
   calendar, slack, file and shell tools; a list **replaces** that set rather
   than extending it, so `[]` means nothing is destructive. Set this if your
   dangerous action is not one the library ships a name for. It gates
-  `enable_destructive`, the authorization requirement, and
-  `require_message_binding: destructive`. It does **not** feed the session-risk
-  gate, which refuses a declared and an undeclared tool alike under
+  `enable_destructive`, the authorization requirement,
+  `require_message_binding: destructive`, and automatic confirmation under
+  `auto_confirm_destructive`. The Python constructor accepts this field by
+  keyword only, preserving the existing positional arguments. It does **not**
+  feed the session-risk gate, which refuses a declared and an undeclared tool alike under
   `contaminated_tool_policy: deny`.
 - `capability_scopes`: server-mode allowed tool scope mapping (`None` = no allowlist; `{}` = deny all tools).
 - `client_id`: optional logical client identity.

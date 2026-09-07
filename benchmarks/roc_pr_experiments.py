@@ -508,12 +508,15 @@ def _stratified_split_indices(
                 test_idx.extend(cluster)
 
     if dev_max_records > 0 and len(dev_idx) > dev_max_records:
-        dev_by_key: dict[tuple[str, bool], dict[str, list[int]]] = defaultdict(
-            lambda: defaultdict(list)
-        )
-        for idx in dev_idx:
-            rec = records[idx]
-            dev_by_key[(rec.suite, rec.label_attack)][_text_identity(rec.text)].append(idx)
+        dev_by_key: dict[tuple[str, bool], dict[str, list[int]]] = defaultdict(dict)
+        # Reuse the ORIGINAL global clusters and their first-record stratum.
+        # Regrouping each record by its own suite/label splits a cross-stratum
+        # cluster before pruning; grouping the surviving pieces again cannot
+        # restore members that pruning has already moved to test.
+        for text_key in sorted({_text_identity(records[idx].text) for idx in dev_idx}):
+            cluster = clusters_by_text[text_key]
+            first = records[cluster[0]]
+            dev_by_key[(first.suite, first.label_attack)][text_key] = cluster
         pruned_dev: list[int] = []
         for _, groups in dev_by_key.items():
             clusters = [groups[key] for key in sorted(groups)]

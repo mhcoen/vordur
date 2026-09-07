@@ -180,10 +180,13 @@ class PolicyConfig:
     #: no supported way to say that it was destructive: the built-in set names
     #: gmail, calendar, slack, file and shell tools and nothing else. Note the
     #: scope of what this changes. It gates ``enable_destructive``, the
-    #: authorization requirement, and ``require_message_binding="destructive"``.
+    #: authorization requirement, ``require_message_binding="destructive"``,
+    #: and ``auto_confirm_destructive``.
     #: It does NOT feed the session-risk gate, which refuses a declared and an
     #: undeclared tool alike under ``contaminated_tool_policy="deny"``.
-    destructive_tools: frozenset[str] | None = None
+    # Keyword-only so existing positional capability_scopes and later fields
+    # retain their meaning instead of silently dropping an authorization gate.
+    destructive_tools: frozenset[str] | None = field(default=None, kw_only=True)
 
     # Server mode (None = no allowlist, {} = deny all tools)
     capability_scopes: dict[str, Any] | None = None
@@ -417,7 +420,9 @@ class SecurityContext:
     #: the context used to ingest that principal's own turns. A context used
     #: to ingest tool or server output must leave it None -- otherwise that
     #: output is attributed to the principal and becomes exempt from no-copy.
-    principal_id: str | None = None
+    # Preserve the existing positional sensitivity/content_type/policy/handler
+    # signature. Reinterpreting a sensitivity label as an identity fails open.
+    principal_id: str | None = field(default=None, kw_only=True)
     sensitivity: SensitivityLevel = SensitivityLevel.PUBLIC
     content_type: ContentType = ContentType.PLAINTEXT
     policy: PolicyConfig = field(default_factory=PolicyConfig)

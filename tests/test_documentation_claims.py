@@ -954,7 +954,8 @@ def test_cached_provider_rows_need_the_same_records_not_just_the_same_count():
     assert not merge("hash-a", None)
 
 
-def test_the_roc_split_keeps_duplicate_texts_on_one_side():
+@pytest.mark.parametrize("dev_max_records", [700, 100, 10])
+def test_the_roc_split_keeps_duplicate_texts_on_one_side(dev_max_records):
     """Thresholds are selected on dev and reported as frozen test results, so a
     text seen while selecting must not be counted again as held out. The split
     grouped by suite and label but shuffled individual records, which put 61
@@ -966,7 +967,7 @@ def test_the_roc_split_keeps_duplicate_texts_on_one_side():
 
     records = build_text_records(load_cases(None, dataset_id=""), injection_scope="injection")
     dev, test = _stratified_split_indices(
-        records, seed=20260223, dev_fraction=0.2, dev_max_records=700
+        records, seed=20260223, dev_fraction=0.2, dev_max_records=dev_max_records
     )
 
     dev_texts = {_text_identity(records[i].text) for i in dev}
@@ -975,8 +976,73 @@ def test_the_roc_split_keeps_duplicate_texts_on_one_side():
 
     assert not set(dev) & set(test)
     assert len(dev) + len(test) == len(records)
-    again = _stratified_split_indices(records, seed=20260223, dev_fraction=0.2, dev_max_records=700)
+    assert len(dev) <= dev_max_records
+    again = _stratified_split_indices(
+        records, seed=20260223, dev_fraction=0.2, dev_max_records=dev_max_records
+    )
     assert (dev, test) == again, "the split must be reproducible from its seed"
+
+
+@pytest.mark.parametrize("cross_label", [False, True])
+def test_roc_cap_never_splits_a_cross_stratum_cluster(cross_label):
+    _bench_path()
+    from compare_mitigations import TextRecord
+    from roc_pr_experiments import _stratified_split_indices, _text_identity
+
+    raw = [("0", "a"), ("0", "a"), (" 0 ", "b"), ("1", "a"), ("1", "a"), ("2", "a")]
+    records = [
+        TextRecord(
+            str(i), suite, "test", "user", "plaintext", text, "", not (cross_label and i == 2)
+        )
+        for i, (text, suite) in enumerate(raw)
+    ]
+    # The initial split includes a whole three-record cluster. A cap of two
+    # must drop it whole, never move just its other-suite/label member to dev.
+    for cap in (1, 2, 3, 4):
+        dev, test = _stratified_split_indices(
+            records, seed=0, dev_fraction=0.6, dev_max_records=cap
+        )
+        assert len(dev) <= cap
+        assert sorted(dev + test) == list(range(len(records)))
+        assert not (
+            {_text_identity(records[i].text) for i in dev}
+            & {_text_identity(records[i].text) for i in test}
+        )
+
+
+def test_roc_capped_split_preserves_clusters_across_randomized_corpora():
+    import random
+
+    _bench_path()
+    from compare_mitigations import TextRecord
+    from roc_pr_experiments import _stratified_split_indices, _text_identity
+
+    rng = random.Random(53)
+    for size in range(4, 45):
+        records = [
+            TextRecord(
+                str(i),
+                rng.choice("abc"),
+                "test",
+                "user",
+                "plaintext",
+                str(rng.randrange(max(2, size // 3))),
+                "",
+                bool(rng.randrange(2)),
+            )
+            for i in range(size)
+        ]
+        for seed in (0, 1, 53):
+            for cap in (1, 2, size // 3):
+                kwargs = {"seed": seed, "dev_fraction": 0.6, "dev_max_records": cap}
+                dev, test = _stratified_split_indices(records, **kwargs)
+                assert len(dev) <= cap
+                assert sorted(dev + test) == list(range(size))
+                assert not (
+                    {_text_identity(records[i].text) for i in dev}
+                    & {_text_identity(records[i].text) for i in test}
+                )
+                assert (dev, test) == _stratified_split_indices(records, **kwargs)
 
 
 def test_meets_budget_dev_is_computed_from_the_dev_split():
