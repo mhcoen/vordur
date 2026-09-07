@@ -19,6 +19,25 @@ from vordur.security.normalization import (
 )
 from vordur.security.types import SensitivityLevel, TrustLevel
 
+#: What one session retains for the no-copy check, as a span count and as
+#: normalized characters. Every span is kept for the life of the session: an
+#: eviction policy would let an attacker flush a sensitive span out of the
+#: tracker by ingesting enough junk after it and then copy it out unchecked,
+#: which is the bypass the tracker exists to prevent. Past these limits the
+#: tracker refuses new content, and the pipeline reports the refusal as a
+#: blocked ingest, so a session that hits them fails visibly rather than
+#: quietly weakening. Every egress check scans everything retained, so the
+#: character budget is what bounds check_outbound: measured at 0.36s per
+#: check with 1,000,000 characters retained and 0.73s with 2,000,000, on
+#: ordinary prose. The DLP buffers hold up to 2,500,000, so this is the same
+#: order as what the session can already compare against.
+MAX_PROVENANCE_SPANS = 10_000
+MAX_PROVENANCE_CHARS = 2_000_000
+
+
+class ProvenanceBudgetError(ValueError):
+    """The session already retains as much provenance as it will hold."""
+
 
 @dataclass
 class ProvenancedSpan:
@@ -66,10 +85,48 @@ class ProvenanceTracker:
 
     def __init__(self) -> None:
         self._spans: list[ProvenancedSpan] = []
+        # Each span's normalized, windowed form, computed once at ingest.
+        # check_outbound used to renormalize and rewindow every span on every
+        # call, so each egress check cost the whole session's ingest history
+        # over again: measured at 3.3 seconds per check after 1,600 documents.
+        self._windows: list[tuple[str, ...]] = []
+        self._chars = 0
+
+    @property
+    def retained_chars(self) -> int:
+        """Normalized characters currently held against the session budget."""
+        return self._chars
+
+    def budget_refusal(self, text: str) -> str | None:
+        """Why ``text`` cannot be retained, or ``None`` while it still fits."""
+        return self._refusal(len(normalize_for_overlap(text)))
+
+    def _refusal(self, size: int) -> str | None:
+        if len(self._spans) >= MAX_PROVENANCE_SPANS:
+            return (
+                f"provenance tracker holds {len(self._spans)} spans, the most one session retains"
+            )
+        if self._chars + size > MAX_PROVENANCE_CHARS:
+            return (
+                f"provenance tracker would hold {self._chars + size} normalized characters, "
+                f"beyond the {MAX_PROVENANCE_CHARS} one session retains"
+            )
+        return None
 
     def add_span(self, span: ProvenancedSpan) -> None:
-        """Register a provenance span."""
+        """Register a provenance span.
+
+        Raises :class:`ProvenanceBudgetError` past the session budget. The
+        pipeline asks :meth:`budget_refusal` first and withholds the content,
+        so this is the backstop for a caller that did not.
+        """
+        normalized = normalize_for_overlap(span.text)
+        refusal = self._refusal(len(normalized))
+        if refusal is not None:
+            raise ProvenanceBudgetError(refusal)
         self._spans.append(span)
+        self._windows.append(tuple(w for w in overlap_windows(normalized) if w))
+        self._chars += len(normalized)
 
     def check_outbound(
         self,
@@ -124,14 +181,15 @@ class ProvenanceTracker:
             )
 
         # Select spans to check: always untrusted, plus sensitive when contaminated
-        check_spans: list[tuple[ProvenancedSpan, str]] = [
-            (s, "untrusted")
-            for s in self._spans
+        rows = list(zip(self._spans, self._windows, strict=True))
+        check_spans: list[tuple[ProvenancedSpan, str, tuple[str, ...]]] = [
+            (s, "untrusted", w)
+            for s, w in rows
             if s.source_trust == TrustLevel.UNTRUSTED and not _is_own_span(s)
         ]
         if contaminated:
             check_spans.extend(
-                (s, "sensitive") for s in self._spans if s.sensitivity == SensitivityLevel.SENSITIVE
+                (s, "sensitive", w) for s, w in rows if s.sensitivity == SensitivityLevel.SENSITIVE
             )
 
         if not check_spans:
@@ -163,12 +221,10 @@ class ProvenanceTracker:
         # character ingested document came back clean: the same bypass as the
         # outbound cap, in the other direction. Each window is compared
         # separately and reports its own span, so a match anywhere in a long
-        # span is found and attributed correctly.
+        # span is found and attributed correctly. The windows were built at
+        # ingest, so this is a flatten, not a normalization pass.
         normalized_spans = [
-            (span, label, window)
-            for span, label in check_spans
-            for window in overlap_windows(normalize_for_overlap(span.text))
-            if window
+            (span, label, window) for span, label, windows in check_spans for window in windows
         ]
         for variant in content_variants:
             deob = " (deobfuscated)" if variant is not normalized_content else ""

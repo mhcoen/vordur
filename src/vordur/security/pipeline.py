@@ -41,6 +41,15 @@ from vordur.security.vault_store import VaultStore
 # fire (contamination, egress escalation), the strictest policy wins.
 _POLICY_RANK = {"allow": 0, "require_auth": 1, "deny": 2}
 
+#: The most content one process_inbound call inspects. Beyond it the call
+#: refuses rather than truncating, for the same reason the provenance overlap
+#: check does: a limit that trims silently is a bypass, since whatever was
+#: trimmed was never examined but is still handed to the model. Matches
+#: MAX_OVERLAP_SCAN_CHARS, so content that gets in can also be checked on the
+#: way out. Every scan on this path is linear in the input, so the bound is a
+#: budget, not a workaround for anything superlinear.
+MAX_INBOUND_CHARS = 1_000_000
+
 
 class SecurityPipeline:
     """Unified security pipeline for client and server mode.
@@ -179,6 +188,27 @@ class SecurityPipeline:
                 f"pipeline was constructed with {self._principal_trust}"
             )
         warnings: list[str] = []
+
+        # Bounds, checked before anything is recorded. A refusal here changes
+        # no session state: nothing was ingested, so nothing is remembered,
+        # and the host sees ``blocked=True`` with the content withheld, the
+        # same shape a failed de-identification takes below.
+        refusal: str | None = None
+        if len(content) > MAX_INBOUND_CHARS:
+            refusal = (
+                f"content is {len(content)} characters, beyond the "
+                f"{MAX_INBOUND_CHARS} the inbound pipeline inspects"
+            )
+        else:
+            refusal = self._provenance.budget_refusal(content)
+        if refusal is not None:
+            return ProcessedContent(
+                content="[inbound refused: content withheld]",
+                source_type=ctx.source_type,
+                source_id=ctx.source_id,
+                warnings=[f"Inbound refused: {refusal}"],
+                blocked=True,
+            )
 
         # TR39 confusable normalization at inbound trust boundary.
         # Maps homoglyph characters to ASCII before any security check.

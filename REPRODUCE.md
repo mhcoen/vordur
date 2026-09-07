@@ -154,7 +154,7 @@ Each upstream suite is pinned to a specific commit SHA in `benchmarks/upstream/m
 ```bash
 # View pinned refs and case counts
 python -c "
-import json; m = json.loads(open('benchmarks/upstream/manifest.json').read_text())
+import json; m = json.load(open('benchmarks/upstream/manifest.json'))
 for s in m['sources']:
     print(f\"{s['suite']:20s} ref={s['ref'][:12]} mapped={s['mapped_cases']}\")
 "
@@ -178,6 +178,8 @@ This suite is optional. All benchmark results, the eval suite, and the compariso
 ## CSE-8000: Control Surface Evaluation (no API keys)
 
 The CSE-8000 evaluation tests all 8 security control kinds against an independent oracle with 1,000 cases per kind (500 attack, 500 benign). The oracle is in `devel/` and has zero imports from `src/vordur/`.
+
+> **Not runnable from a clone.** The evaluator, the baselines, the oracle, and the case file this section invokes live under `devel/`, which is not tracked in this repository. Until they are published, the CSE-8000 figures below are reported rather than reproducible, and the tracked surface evidence in `benchmarks/published/` is the verifiable record for the control surfaces.
 
 ### Run the evaluation
 
@@ -409,8 +411,10 @@ Output: `benchmarks/runs/comparison-local/comparison.json` and `comparison.md`
 
 The comparison report includes a surface controls section. Key claims to verify:
 - Vörður: 100% on surface controls
-- `surface_stack` (OPA + Redis + Casbin + JSON Schema composed): ~74% on surface controls
-- `no_defense`: ~13% on surface controls
+- `surface_stack` (OPA + Redis + Casbin + JSON Schema composed): 65.98% on surface controls
+- `no_defense_surface`: 12.5% on surface controls
+
+Both figures are the published ones in `benchmarks/published/surface_controls.md`, which records the run id, commit, and dataset hash behind them.
 
 Optional surface-stack dependencies (included in `pip install -e '.[benchmarks]'`):
 

@@ -185,6 +185,32 @@ def _is_hidden_style(style: str) -> tuple[bool, str | None]:
 # ---------------------------------------------------------------------------
 
 
+_CLASS_OPENER_RE = re.compile(r"\.([A-Za-z0-9_-]+)\s*\{")
+_HIDDEN_DECLARATION_RE = re.compile(r"display\s*:\s*none|visibility\s*:\s*hidden", re.I)
+
+
+def _hidden_classes(style_blob: str) -> set[str]:
+    """Class names whose rule block hides the element.
+
+    A class is hidden when a ``display: none`` or ``visibility: hidden``
+    declaration follows its ``.name {`` opener before the next ``}``. That is
+    the relation the single regex this replaced expressed with a lazy
+    ``[^}]*?``, and the regex walked to the closing brace once per opener, so
+    a block with many openers and no close, which untrusted HTML can contain
+    at will, cost the product of the two. Splitting on ``}`` first and finding
+    the last hidden declaration in each block once makes it a single pass.
+    """
+    hidden: set[str] = set()
+    for block in style_blob.split("}"):
+        last = max((m.start() for m in _HIDDEN_DECLARATION_RE.finditer(block)), default=-1)
+        if last < 0:
+            continue
+        for m in _CLASS_OPENER_RE.finditer(block):
+            if m.end() <= last:
+                hidden.add(m.group(1).lower())
+    return hidden
+
+
 def _sanitize_html(html: str) -> tuple[str, list[str], int, bool]:
     """Extract plaintext from HTML, stripping dangerous elements.
 
@@ -202,12 +228,7 @@ def _sanitize_html(html: str) -> tuple[str, list[str], int, bool]:
     if style_tags:
         class_hiding_possible = True
         style_blob = "\n".join(tag.get_text(" ", strip=True) for tag in style_tags)
-        for m in re.finditer(
-            r"\.([A-Za-z0-9_-]+)\s*\{[^}]*?(?:display\s*:\s*none|visibility\s*:\s*hidden)",
-            style_blob,
-            re.I | re.S,
-        ):
-            hidden_classes.add(m.group(1).lower())
+        hidden_classes = _hidden_classes(style_blob)
 
     # Remove forbidden elements
     for tag_name in _STRIP_ELEMENTS:

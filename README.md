@@ -31,17 +31,14 @@ That is not an argument against those tools, and Vörður replaces none of them.
 
 ## Get Started
 
-> **Do not install from PyPI.** There is no `vordur` release yet. The `guardllm`
-> package on PyPI is 1.1.0, published under this project's former name; it predates
-> both the session-risk feedback loop this README describes and the detector, DLP,
-> canary, and isolation hardening in 1.2.0, and it will not be updated. Install from
-> source until a `vordur` release is published.
-
-Install the current version from source:
-
 ```bash
-pip install git+https://github.com/mhcoen/vordur.git
+pip install vordur
 ```
+
+> The `guardllm` package on PyPI is this project's former name, frozen at 1.1.0. It
+> predates the session-risk feedback loop this README describes and the detector,
+> DLP, canary, and isolation hardening in 1.2.0, and it will not be updated. Install
+> `vordur`.
 
 To modify the library, run the tests, or work through the tutorials, clone it instead:
 
@@ -235,7 +232,7 @@ Table emphasizes F1/recall because class imbalance (`1021` attacks, `2802` benig
 
 Non-text controls: `5224/5224` (`100%`) across 8 security kinds. Every figure here is generated from the [published surface evidence](benchmarks/published/surface_controls.md), which carries the run id, commit, and dataset hash that produced it.
 
-Full benchmark details: [Benchmark Methodology](benchmarks/methodology.md) | [Canonical Results](benchmarks/results.md)
+Full benchmark details: [Benchmark Methodology](benchmarks/methodology.md) | [Canonical Results](benchmarks/results.md) | [Reproduction Guide](REPRODUCE.md)
 
 ## Open source and commercial model
 
@@ -268,7 +265,7 @@ A single team should be able to protect an application without paying. Organizat
 - **Demos**: [Executable demos](demo/README.md) | [System map](https://mhcoen.github.io/vordur/demo/vordur_surface_map.html)
 - **Architecture & API**: [Security Architecture](docs/security.md) | [Threat Model](docs/threat_model.md) | [API Reference](docs/api_spec.md) | [Configuration](docs/configuration.md)
 - **Integration**: [Integration Patterns](docs/integration.md) | [OAuth/OIDC](docs/oauth_integration.md) | [Framework Integrations](docs/integrations/README.md)
-- **Operations**: [Production Checklist](docs/production_checklist.md) | [Troubleshooting](docs/troubleshooting.md) | [Benchmark Methodology](benchmarks/methodology.md) | [Canonical Results](benchmarks/results.md)
+- **Operations**: [Production Checklist](docs/production_checklist.md) | [Troubleshooting](docs/troubleshooting.md) | [Benchmark Methodology](benchmarks/methodology.md) | [Canonical Results](benchmarks/results.md) | [Reproduction Guide](REPRODUCE.md)
 
 ## Development
 

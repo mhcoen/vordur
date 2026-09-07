@@ -1,5 +1,5 @@
 {
-  "library_version": "2.0.0",
+  "library_version": "3.0.0",
   "scenarios": {
     "dlp_canary": {
       "canary_display": "CANARY-be0...d7fc",

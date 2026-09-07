@@ -12,6 +12,7 @@ require enhanced confirmation with a hardcoded warning.
 from __future__ import annotations
 
 import json
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any
 
@@ -58,22 +59,35 @@ class ActionGate:
       context_has_web_derived is True (gated on muse_escalation_gate config)
     """
 
+    #: Confirmed-but-unverified commitments kept per tool. A confirmation the
+    #: host never follows with a verify would otherwise accumulate for the
+    #: life of the session.
+    MAX_PENDING_PER_TOOL = 32
+
     def __init__(self) -> None:
-        # G6: commitment storage. Key = tool_name, value = canonical args string.
-        self._commitments: dict[str, str] = {}
+        # G6: commitment storage. Key = tool_name, value = the canonical args
+        # strings confirmed for it, oldest first. Keyed by both because one
+        # slot per tool was a race: two confirmations of the same tool in
+        # flight overwrote each other, and the first to verify was refused as
+        # "args changed" against the second's arguments. Fail-closed, but a
+        # spurious denial of a call the user did confirm.
+        self._commitments: dict[str, OrderedDict[str, None]] = {}
 
     def verify_commitment(self, tool: str, args: dict[str, Any]) -> tuple[bool, str]:
-        """Verify that tool+args match the last confirmed commitment (G6).
+        """Verify that tool+args match a confirmed commitment (G6), consuming it.
 
-        Returns (ok, reason). If no commitment exists for this tool,
-        returns (False, "no commitment found").
+        Returns (ok, reason). With no commitment for this tool the answer is
+        (False, "no commitment found"); with commitments for the tool but none
+        for these exact bytes, (False, "args changed after confirmation"). A
+        commitment verifies once: the confirmation covered one dispatch.
         """
-        if tool not in self._commitments:
+        pending = self._commitments.get(tool)
+        if not pending:
             return False, "no commitment found"
-        committed = self._commitments[tool]
         actual = canonicalize_args(args)
-        if committed != actual:
+        if actual not in pending:
             return False, "args changed after confirmation"
+        del pending[actual]
         return True, "commitment verified"
 
     def requires_confirmation(
@@ -148,7 +162,10 @@ class ActionGate:
                 context_dict,
             )
             if confirmed:
-                self._commitments[proposal.tool_name] = canonical_before
+                pending = self._commitments.setdefault(proposal.tool_name, OrderedDict())
+                pending[canonical_before] = None
+                while len(pending) > self.MAX_PENDING_PER_TOOL:
+                    pending.popitem(last=False)
             return confirmed
 
         # No handler configured -- deny by default

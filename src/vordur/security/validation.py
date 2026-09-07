@@ -203,8 +203,11 @@ def validate_arguments(
             errors.append(f"Parameter {_safe_arg_label(arg_name)} exceeds maximum size")
 
         # Check pattern
+        # fullmatch, not match: the declared patterns end in "$", and "$"
+        # also matches before a trailing newline, so "abc\n" passed a pattern
+        # written to admit "abc". The newline then reached the tool.
         pattern = limits_for_arg.get("pattern")
-        if pattern is not None and not re.match(pattern, value):
+        if pattern is not None and not re.fullmatch(pattern, value):
             errors.append(f"Parameter {_safe_arg_label(arg_name)} exceeds limits")
 
     if errors:

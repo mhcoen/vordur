@@ -9,6 +9,7 @@
 <summary>On this page</summary>
 
 - [Scope and Stability](#scope-and-stability)
+- [Session Lifetime and Concurrency](#session-lifetime-and-concurrency)
 - [Public Export](#public-export)
 - [Guard Class](#guard-class)
   - [Constructor](#constructor)
@@ -21,6 +22,7 @@
   - [Static Method: `context_mcp_client`](#static-method-context_mcp_client)
   - [Static Method: `context_document`](#static-method-context_document)
   - [Static Method: `context_web`](#static-method-context_web)
+  - [Static Method: `context_internal_sensitive`](#static-method-context_internal_sensitive)
   - [Method: `process_inbound`](#method-process_inbound)
   - [Method: `process_inbound_compound`](#method-process_inbound_compound)
   - [Method: `check_tool_call`](#method-check_tool_call)
@@ -68,8 +70,17 @@ This document is the complete public API contract for Vörður (`vordur`) as imp
 - Public package export surface: `vordur.Guard`
 - Stability target: `Guard` methods and the data types referenced below.
 - Internal modules under `vordur.security.*` are implementation details unless explicitly referenced in this spec.
-- The privacy types are public and referenced here, but are imported from `vordur.security.types` rather than from the package root: `PrivacyConfig`, `PIIClass`, `ClassPolicy`, `Destination`, `PIIFinding`, `Detector`, `DeidentifyResult`, `PreparedCall`.
+- The privacy types are public and exported from the package root as well as from `vordur.security.types`: `PrivacyConfig`, `PIIClass`, `ClassPolicy`, `Destination`, `PIIFinding`, `Detector`, `DetectedSpan`, `DeidentifyResult`, `ReidentifyResult`, `PreparedCall`. So are `ConfirmationHandler`, `AuditLogger`, `SanitizationResult`, `RateLimitResult`, and `ExtractionPolicy`.
+- This document is authoritative. [api.md](api.md) is the overview; where the two differ, this one wins.
 - Four supported modules sit outside the `Guard` facade: `vordur.config` (policy files), `vordur.policy` (Rego), `vordur.support` (diagnostic bundles), and `vordur.security.vault_store` (vault persistence: the `VaultStore` protocol, `EncryptedFileVaultStore`, `MemoryVaultStore`, `VaultSnapshot`, `VaultEntry`, `VaultStoreError`, `generate_key`, and `VAULT_SNAPSHOT_VERSION`). Each has its own page under [docs](README.md). `vordur.api` also exports `joined_call_payload(args)`, a tool call's string *values* concatenated in traversal order with field names excluded: `prepare_tool_call` and the gateway check it as one outbound payload after checking each field, so a secret, canary, or copied passage cut across two fields is seen. It does not reach a split whose field ordering keeps the halves apart, nor one spread across separate calls or turns; that needs cross-request accumulation.
+
+## Session Lifetime and Concurrency
+
+A `Guard` holds the state of one logical session: the contamination and escalation flags, provenance spans, DLP buffers, rate counters, action-gate commitments, the remembered canary, and the privacy vault. Nothing in that state is keyed by user or principal.
+
+- **One `Guard` per session, and per principal.** A `Guard` shared across users lets one user's untrusted ingest tighten another's tool calls, one user's sensitive content block another's egress, and, with `privacy`, one user re-identify another's tokens. Construct one per session, or call `reset()` only at a genuine session boundary; `reset()` mid-session discards the evidence the session has accumulated.
+- **`principal_trust` is fixed at construction.** Every `SecurityContext` passed to `process_inbound`, `process_inbound_compound`, `check_tool_call`, `guard_tool_call`, `check_outbound`, or `check_outbound_content` must carry the `principal_trust` the `Guard` was built with. A mismatch raises `ValueError("principal_trust mismatch: context has ..., pipeline was constructed with ...")` before any check runs. The context builders take `principal_trust` as a keyword for this reason and default it to `UNTRUSTED`, matching the constructor default.
+- **Sequential, not concurrent.** Session state is mutated without internal synchronization. Drive one `Guard` from one thread or one asyncio task at a time; a host that runs calls concurrently must serialize them. Two operations are locked internally, the rate limiter's confirmation finalize and the vault's token issuance, and each covers only itself. See [security.md](security.md#concurrency-and-thread-safety).
 
 ## Public Export
 
@@ -77,19 +88,34 @@ This document is the complete public API contract for Vörður (`vordur`) as imp
 from vordur import Guard
 ```
 
-`src/vordur/__init__.py` exports thirteen names. `Guard` is the facade; the
+`src/vordur/__init__.py` exports the names below. `Guard` is the facade; the
 rest are the types its methods accept and return, so they are public because
 callers need them for annotations and construction:
 
-- `Guard`
 - `AuditEvent`
+- `AuditLogger`
 - `AuthorizationEvent`
 - `Binding`
+- `ClassPolicy`
+- `ConfirmationHandler`
 - `ContentType`
+- `DeidentifyResult`
+- `Destination`
+- `DetectedSpan`
+- `Detector`
+- `ExtractionPolicy`
 - `GateResult`
+- `Guard`
 - `OutboundResult`
+- `PIIClass`
+- `PIIFinding`
 - `PolicyConfig`
+- `PreparedCall`
+- `PrivacyConfig`
 - `ProcessedContent`
+- `RateLimitResult`
+- `ReidentifyResult`
+- `SanitizationResult`
 - `SecurityContext`
 - `SensitivityLevel`
 - `TrustLevel`
@@ -206,6 +232,7 @@ Guard.context_mcp_server(
     source_trust: TrustLevel = TrustLevel.UNTRUSTED,
     content_type: ContentType = ContentType.PLAINTEXT,
     policy: PolicyConfig | None = None,
+    principal_trust: TrustLevel = TrustLevel.UNTRUSTED,
 ) -> SecurityContext
 ```
 
@@ -215,6 +242,7 @@ Returns `SecurityContext` with:
 - `source_id=server_id`
 - `source_trust`, `content_type` as passed/defaulted
 - `policy=policy or PolicyConfig()`
+- `principal_trust` as passed/defaulted; it must equal the `Guard`'s own (see [Session Lifetime and Concurrency](#session-lifetime-and-concurrency))
 
 ### Static Method: `context_mcp_client`
 
@@ -225,6 +253,8 @@ Guard.context_mcp_client(
     source_trust: TrustLevel = TrustLevel.UNTRUSTED,
     content_type: ContentType = ContentType.PLAINTEXT,
     policy: PolicyConfig | None = None,
+    principal_trust: TrustLevel = TrustLevel.UNTRUSTED,
+    principal_id: str | None = None,
 ) -> SecurityContext
 ```
 
@@ -234,6 +264,8 @@ Returns `SecurityContext` with:
 - `source_id=client_id`
 - `source_trust`, `content_type` as passed/defaulted
 - `policy=policy or PolicyConfig()`
+- `principal_trust` as passed/defaulted; it must equal the `Guard`'s own (see [Session Lifetime and Concurrency](#session-lifetime-and-concurrency))
+- `principal_id` as passed (default `None`); the only profile that sets it, and the only identity `check_outbound(egress_to_principal_id=...)` will exempt
 
 ### Static Method: `context_document`
 
@@ -243,6 +275,7 @@ Guard.context_document(
     *,
     content_type: ContentType = ContentType.PLAINTEXT,
     policy: PolicyConfig | None = None,
+    principal_trust: TrustLevel = TrustLevel.UNTRUSTED,
 ) -> SecurityContext
 ```
 
@@ -253,6 +286,7 @@ Returns `SecurityContext` with:
 - `source_trust=TrustLevel.UNTRUSTED`
 - `content_type` as passed/defaulted
 - `policy=policy or PolicyConfig()`
+- `principal_trust` as passed/defaulted; it must equal the `Guard`'s own (see [Session Lifetime and Concurrency](#session-lifetime-and-concurrency))
 
 ### Static Method: `context_web`
 
@@ -262,6 +296,7 @@ Guard.context_web(
     source_id: str = "web",
     content_type: ContentType = ContentType.HTML,
     policy: PolicyConfig | None = None,
+    principal_trust: TrustLevel = TrustLevel.UNTRUSTED,
 ) -> SecurityContext
 ```
 
@@ -272,6 +307,31 @@ Returns `SecurityContext` with:
 - `source_trust=TrustLevel.UNTRUSTED`
 - `content_type` as passed/defaulted
 - `policy=policy or PolicyConfig()`
+- `principal_trust` as passed/defaulted; it must equal the `Guard`'s own (see [Session Lifetime and Concurrency](#session-lifetime-and-concurrency))
+
+### Static Method: `context_internal_sensitive`
+
+```python
+Guard.context_internal_sensitive(
+    *,
+    source_id: str = "internal",
+    content_type: ContentType = ContentType.PLAINTEXT,
+    policy: PolicyConfig | None = None,
+    principal_trust: TrustLevel = TrustLevel.UNTRUSTED,
+) -> SecurityContext
+```
+
+For content the host trusts but must not let out: credentials, customer records, internal documents. Ingesting it through `process_inbound` registers it as a sensitive span, so a later `check_outbound` refuses to copy it regardless of contamination.
+
+Returns `SecurityContext` with:
+- `mode="client"`
+- `source_type="internal"`
+- `source_id=source_id`
+- `source_trust=TrustLevel.TRUSTED`
+- `sensitivity=SensitivityLevel.SENSITIVE`
+- `content_type` as passed/defaulted
+- `policy=policy or PolicyConfig()`
+- `principal_trust` as passed/defaulted; it must equal the `Guard`'s own (see [Session Lifetime and Concurrency](#session-lifetime-and-concurrency))
 
 ### Method: `process_inbound`
 
@@ -284,6 +344,8 @@ Pipeline behavior:
 - Wraps untrusted content in `<untrusted_content ...>` tags.
 - Tracks provenance and warnings.
 - Emits audit event `inbound_processed` if audit logger is configured.
+- Raises `ValueError` when `context.principal_trust` differs from the `Guard`'s `principal_trust`.
+- **Bounded, and refuses rather than truncates.** Content over `MAX_INBOUND_CHARS` (1,000,000 characters, `vordur.security.pipeline`), or that would push the session past what its provenance tracker retains (`MAX_PROVENANCE_SPANS` 10,000 spans or `MAX_PROVENANCE_CHARS` 2,000,000 normalized characters, `vordur.security.provenance`), returns `ProcessedContent(blocked=True)` with `content="[inbound refused: content withheld]"` and a warning naming the bound. Nothing is recorded: contamination, DLP, and provenance are unchanged. The tracker never evicts, because evicting the oldest span would let a flood of junk flush a sensitive span out of the no-copy check; a session that reaches the budget is at a boundary the host has to `reset()` deliberately.
 
 ### Method: `process_inbound_compound`
 
@@ -298,7 +360,7 @@ Pipeline behavior:
 - Processes each span independently through the existing `process_inbound` path.
 - Session state (contamination, DLP buffers, provenance) accumulates across all spans.
 - If any span has `source_trust == UNTRUSTED`, the session contamination flag is set, widening downstream egress checks for the entire session.
-- Source gate evaluates extraction policy per span independently; a trusted envelope does not upgrade an untrusted forwarded payload.
+- Each span keeps its own trust label, so a trusted envelope does not upgrade an untrusted forwarded payload. This path does not consult the source gate; `SecurityPipeline.check_kg_extraction` is a separate call.
 - `compound_id` links spans for provenance and audit. If `None`, generated from a hash of all span contents (16-char hex prefix).
 - Emits per-span `inbound_processed` audit events plus one `compound_inbound_processed` summary event with the `compound_id` as `request_id`.
 
@@ -327,7 +389,10 @@ Behavior:
 - `recipient` (optional) feeds novel-recipient rate-limit anomaly detection; surfaced non-blocking on `GateResult.anomalies` and recorded in the audit event.
 - `validate` (default `True`): validate arguments before the authorization decision; pass `False` only when the caller already validated (as `guard_tool_call` does).
 - `record_rate_limit` (default `True`): a permitted call is the terminal decision and is recorded against the rate limiter. The rate-limit *check* always runs; only the *record* is gated. `guard_tool_call` passes `False` when a confirmation still follows, so a denied confirmation does not consume quota (see `guard_tool_call` below).
+- Runs the session-risk gate before the policy check: contamination and escalation flags, under `contaminated_tool_policy` and `escalated_tool_policy`, deny with `"Tool call denied: ..."` or demand an authorization with `"Authorization required: ..."`, naming each trigger.
+- An `authorization` older than 300 seconds is denied as expired, as is one with a non-finite or future `timestamp`. The window is the policy engine's default and is not configurable through `Guard` or `PolicyConfig`.
 - Emits audit event `tool_call_checked` if audit logger is configured.
+- Raises `ValueError` when `context.principal_trust` differs from the `Guard`'s `principal_trust`.
 
 ### Method: `check_outbound`
 
@@ -338,6 +403,7 @@ guard.check_outbound(
     *,
     has_quoting_directive: bool = False,
     recipient: str | None = None,
+    egress_to_principal_id: str | None = None,
 ) -> OutboundResult
 ```
 
@@ -345,7 +411,9 @@ Behavior:
 - Checks the remembered canary first, then runs outbound DLP, provenance, and rate checks.
 - A canary match blocks even with a quoting directive, sets `OutboundResult.canary_detected`, and escalates the logical session.
 - `recipient` (optional) feeds novel-recipient rate-limit anomaly detection; surfaced non-blocking on `OutboundResult.anomalies` and recorded in the audit event.
+- `egress_to_principal_id` (optional): untrusted spans whose `principal_id` equals this value are exempt from the no-copy check, so a principal can be handed back their own words. Both values must be truthy to match. Sensitive spans, the remembered canary, and the secret scan are never exempt.
 - Emits one facade-owned `outbound_checked` audit event if audit logging is configured. Its DLP payload includes `canary_detected` and the post-check escalation state, never the canary value or raw outbound content.
+- Raises `ValueError` when `context.principal_trust` differs from the `Guard`'s `principal_trust`.
 
 ### Method: `check_outbound_content`
 
@@ -363,6 +431,7 @@ Behavior:
 - For a caller inspecting several pieces of one outbound action, which is the shape a tool call has: many argument leaves, one send. `check_outbound` records an outbound action every time it is called, so looping it over the leaves charges that single action once per string and exhausts the hourly quota inside one request.
 - Escalation is preserved: a canary block or a high-confidence DLP block still sets session escalation, so a leak found in an argument still tightens later tool calls.
 - `prepare_tool_call` and the gateway's tool-argument check both use this rather than `check_outbound`.
+- Raises `ValueError` when `context.principal_trust` differs from the `Guard`'s `principal_trust`.
 
 ### Method: `validate_tool_args`
 
@@ -494,8 +563,8 @@ await guard.confirm_action(
 
 Behavior:
 - Delegates to `context.confirmation_handler.confirm(...)` when handler exists.
-- If no confirmation handler is configured, fails closed (`False`).
-- Emits audit event `action_gate_confirmed` if audit logger is configured.
+- If no confirmation handler is configured, fails closed (`False`) and emits `action_gate_unavailable` with `user_confirmed=None`: no user was consulted, so the audit trail does not record a decision nobody made.
+- Otherwise emits `action_gate_confirmed` with the handler's answer in `user_confirmed`, if audit logger is configured.
 
 ### Async Method: `guard_tool_call`
 
@@ -533,6 +602,7 @@ Return behavior:
 - Validation failure: `GateResult(allowed=False, reason="Validation failed: ...", confidence="none")`
 - Gate failure: returns gate denial from `check_tool_call`
 - Confirmation denied: `GateResult(allowed=False, reason="User denied confirmation", confidence="none")`
+- Confirmation required with no handler configured: `GateResult(allowed=False, reason="Confirmation unavailable: no confirmation handler configured", confidence="none")`, with an `action_gate_unavailable` audit event
 - G6 commitment mismatch: `GateResult(allowed=False, reason="Commitment verification failed: ...", confidence="none")`
 - Rate-limit reached at finalize (concurrent confirmed calls): `GateResult(allowed=False, reason="Hourly limit exceeded ...", confidence="none")`
 - Success: returns gate result from `check_tool_call`
@@ -574,7 +644,7 @@ Fields:
 - `tool_allowlist: dict[tuple, Any] | None = None` (`None` = no allowlist, fall through; `{}` = deny all tools)
 - `directive_patterns: dict[str, Any] = {}` (reserved / not yet wired; not consulted by the policy engine today, retained for forward compatibility)
 - `enable_destructive: bool = False`
-- `destructive_tools: frozenset[str] | None = None` (keyword-only; replaces the built-in destructive-tool set for authorization and automatic confirmation; an empty set disables destructive classification)
+- `destructive_tools: frozenset[str] | None = None` (keyword-only; `None` keeps the built-in set; a frozenset replaces it, including an empty set. Gates `enable_destructive`, the authorization requirement, `require_message_binding="destructive"`, and `auto_confirm_destructive`; does not feed the session-risk gate)
 - `capability_scopes: dict[str, Any] | None = None` (`None` = no allowlist; `{}` = deny all tools)
 - `client_id: str | None = None`
 - `server_default_deny: bool = False` (server mode: when `True`, a missing `capability_scopes` denies all tools instead of allowing by default)
@@ -609,12 +679,12 @@ async def confirm(self, tool: str, args: dict, context: dict) -> bool
 ### Dataclass: `SecurityContext`
 
 Fields:
-- `mode: str` (`"client"` or `"server"` by convention)
+- `mode: str` (`"client"` or `"server"`; any other value raises `ValueError` at construction)
 - `source_type: str`
 - `source_id: str`
 - `source_trust: TrustLevel = TrustLevel.UNTRUSTED` (per-content trust; `TRUSTED` or `UNTRUSTED` only)
-- `principal_trust: TrustLevel = TrustLevel.UNTRUSTED` (per-session caller trust; `TRUSTED`, `SEMI_TRUSTED`, or `UNTRUSTED`)
-- `principal_id: str | None = None` (keyword-only; authenticated author identity for the egress-recipient exemption, never inferred from `source_id`; leave unset on tool/server output)
+- `principal_trust: TrustLevel = TrustLevel.UNTRUSTED` (per-session caller trust; `TRUSTED`, `SEMI_TRUSTED`, or `UNTRUSTED`; must equal the `Guard`'s own)
+- `principal_id: str | None = None` (keyword-only; authenticated author identity for the egress-recipient exemption, never inferred from `source_id`; only `context_mcp_client` exposes it among the profiles; leave unset on tool/server output)
 - `sensitivity: SensitivityLevel = SensitivityLevel.PUBLIC`
 - `content_type: ContentType = ContentType.PLAINTEXT`
 - `policy: PolicyConfig = PolicyConfig()`
@@ -749,4 +819,17 @@ If `Guard(..., audit_logger=logger)` is provided:
 1. an instance of `vordur.security.audit.AuditLogger`, or
 2. any object with method `log(event)`
 
-`event` is an `AuditEvent` instance.
+`event` is an `AuditEvent` instance. `event_type` is one of:
+
+- `action_gate_confirmed`
+- `action_gate_unavailable`
+- `compound_inbound_processed`
+- `deidentified`
+- `error_sanitized`
+- `inbound_processed`
+- `outbound_checked`
+- `outbound_content_checked`
+- `reidentified`
+- `tool_args_validated`
+- `tool_call_checked`
+- `tool_call_prepare_denied`

@@ -1549,3 +1549,42 @@ class TestEgressToPrincipalIdThreading:
         ctx = SecurityContext(mode="client", source_type="mcp_server", source_id="model")
         p.check_outbound("hello there", ctx)
         assert seen["egress_to_principal_id"] is None
+
+
+class TestInboundBounds:
+    """process_inbound refuses past its bounds, and a refusal changes nothing."""
+
+    def test_oversize_content_is_withheld_and_leaves_no_state(self, pipeline, untrusted_ctx):
+        import vordur.security.pipeline as pipe
+
+        content = "x" * (pipe.MAX_INBOUND_CHARS + 1)
+        result = pipeline.process_inbound(content, untrusted_ctx)
+        assert result.blocked is True
+        assert result.content == "[inbound refused: content withheld]"
+        assert any("beyond the" in w for w in result.warnings)
+        assert pipeline.context_contaminated is False
+        assert pipeline._provenance._spans == []
+
+    def test_the_provenance_budget_withholds_instead_of_evicting(
+        self, monkeypatch, pipeline, untrusted_ctx
+    ):
+        import vordur.security.provenance as prov
+
+        monkeypatch.setattr(prov, "MAX_PROVENANCE_CHARS", 80)
+        first = "the confidential figures for the fourth quarter are attached here"
+        ok = pipeline.process_inbound(first, untrusted_ctx)
+        assert ok.blocked is False
+        assert pipeline.context_contaminated is True
+
+        flood = pipeline.process_inbound("junk " * 40, untrusted_ctx)
+        assert flood.blocked is True
+        assert any("provenance tracker" in w for w in flood.warnings)
+        # The first span survived the flood and still blocks a copy.
+        outbound = pipeline.check_outbound(first, untrusted_ctx)
+        assert outbound.allowed is False
+
+    def test_content_at_the_bound_is_processed(self, pipeline, untrusted_ctx):
+        import vordur.security.pipeline as pipe
+
+        result = pipeline.process_inbound("y" * pipe.MAX_INBOUND_CHARS, untrusted_ctx)
+        assert result.blocked is False

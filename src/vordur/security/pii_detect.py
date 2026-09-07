@@ -27,6 +27,7 @@ whole text.
 
 from __future__ import annotations
 
+import datetime
 import ipaddress
 import re
 import unicodedata
@@ -329,11 +330,16 @@ def ipv6_valid(value: str) -> bool:
 
 
 def dob_valid(value: str) -> bool:
-    """Accept only dates whose year is plausible for a date of birth."""
+    """Accept only dates whose year is plausible for a date of birth.
+
+    The ceiling is the current year, read at call time. It was a literal
+    once, and a literal is right for one year: a child born after it had
+    no date of birth as far as this detector was concerned.
+    """
     years = re.findall(r"\d{4}", value)
     if not years:
         return False
-    return 1900 <= int(years[0]) <= 2025
+    return 1900 <= int(years[0]) <= datetime.date.today().year
 
 
 # ---------------------------------------------------------------------------
@@ -445,10 +451,17 @@ class DetectorSpec:
 #: Order matters only for tie-breaking inside `re`'s alternation; genuine
 #: overlap is resolved structurally in `_resolve_overlaps`, not by this order.
 _DETECTORS: tuple[DetectorSpec, ...] = (
+    # The lookbehind is what keeps this linear. Without it, every position
+    # inside a long run of local-part characters is a fresh start for the
+    # greedy class, which then walks to the end of the run looking for an
+    # "@" and backtracks: quadratic in the run, and a base64 blob is one run.
+    # Measured at 1.0s for 40,000 characters. Leftmost matching already
+    # began every match at the start of its run, so refusing to start inside
+    # one changes no result, only the cost.
     DetectorSpec(
         PIIClass.EMAIL,
         "email",
-        r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}",
+        r"(?<![A-Za-z0-9._%+\-])[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}",
     ),
     DetectorSpec(
         PIIClass.IBAN,

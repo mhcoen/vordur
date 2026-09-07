@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "Vörður"
+abstract: >-
+  Deterministic security controls in the application around an LLM:
+  provenance labeling and isolation of untrusted content, prompt-injection
+  detection, tool authorization and request binding, outbound data-loss
+  prevention, and a privacy vault, all local and with no external API calls.
+authors:
+  - family-names: Coen
+    given-names: Michael H.
+    email: mhcoen@gmail.com
+version: 3.0.0
+date-released: 2026-09-05
+license: MIT
+repository-code: "https://github.com/mhcoen/vordur"
+url: "https://mhcoen.github.io/vordur/"
+keywords:
+  - llm
+  - security
+  - prompt-injection
+  - mcp
+  - data-loss-prevention
+  - privacy

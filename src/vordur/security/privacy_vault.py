@@ -782,9 +782,12 @@ class PrivacyVault:
                 # were otherwise enough to exhaust the budget and refuse a
                 # perfectly good document.
                 counts: dict[str, int] = {}
-                for gram in _trigrams(compact):
-                    for body in self._body_trigrams.get(gram, ()):
-                        counts[body] = counts.get(body, 0) + 1
+                # Under the issuance lock: issue_batch adds to these sets, and
+                # a set that grows while it is iterated raises mid-scan.
+                with self._lock:
+                    for gram in _trigrams(compact):
+                        for body in self._body_trigrams.get(gram, ()):
+                            counts[body] = counts.get(body, 0) + 1
                 if counts and max(counts.values()) >= 6:
                     yield compact
 
@@ -842,9 +845,10 @@ class PrivacyVault:
                         return True
                     window = compact[k : k + width]
                     counts: dict[str, int] = {}
-                    for gram in _trigrams(window):
-                        for body in self._body_trigrams.get(gram, ()):
-                            counts[body] = counts.get(body, 0) + 1
+                    with self._lock:
+                        for gram in _trigrams(window):
+                            for body in self._body_trigrams.get(gram, ()):
+                                counts[body] = counts.get(body, 0) + 1
                     for body, shared in counts.items():
                         # Two edits destroy at most six trigrams, so a genuine
                         # near miss still shares at least this many. The count
@@ -1282,7 +1286,11 @@ class PrivacyVault:
         disclosing exactly as much as before.
         """
         out = s
-        for entry in self._by_payload.values():
+        # A snapshot under the lock: issuance adds to the index, and a dict
+        # that changes size while it is iterated raises.
+        with self._lock:
+            entries = list(self._by_payload.values())
+        for entry in entries:
             if not entry.value or entry.value not in out:
                 continue
             # Bounded replacement. A global str.replace of a short vaulted

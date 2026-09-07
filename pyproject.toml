@@ -4,12 +4,25 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vordur"
-version = "2.0.0"
+version = "3.0.0"
 description = "Standalone hardening library for MCP clients/servers and untrusted content"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [{name = "Michael H. Coen", email = "mhcoen@gmail.com"}]
+keywords = ["llm", "security", "prompt-injection", "mcp", "dlp", "privacy", "guardrails"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Security",
+  "Typing :: Typed",
+]
 dependencies = [
   "beautifulsoup4>=4.12",
   # soupsieve is pulled in transitively by beautifulsoup4; pin to the patched
@@ -17,6 +30,14 @@ dependencies = [
   "soupsieve>=2.8.4",
   "confusables>=1.2",
 ]
+
+[project.urls]
+Homepage = "https://mhcoen.github.io/vordur/"
+Repository = "https://github.com/mhcoen/vordur"
+Documentation = "https://github.com/mhcoen/vordur/blob/main/docs/README.md"
+Changelog = "https://github.com/mhcoen/vordur/blob/main/CHANGELOG.md"
+Issues = "https://github.com/mhcoen/vordur/issues"
+Security = "https://github.com/mhcoen/vordur/blob/main/SECURITY.md"
 
 [project.optional-dependencies]
 dev = [
@@ -58,7 +79,7 @@ vault = [
 # commit. Dependabot tracks these and opens a PR when a version moves, so the
 # upgrade lands as its own reviewable change.
 lint = [
-  "ruff==0.16.4",
+  "ruff==0.16.5",
   "bandit==1.9.4",
 ]
 # Kept out of `dev` on purpose. The pip-audit job freezes the environment to

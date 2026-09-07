@@ -437,3 +437,52 @@ class TestArgsCommitment:
         asyncio.run(gate.confirm(proposal, ctx))
         ok, _ = gate.verify_commitment("gmail_send_email", {"to": "alice@test.com"})
         assert ok is False
+
+
+class TestCommitmentsInFlight:
+    """One slot per tool was a race between two confirmations of the same tool."""
+
+    def _proposal(self, args):
+        return ActionProposal(tool_name="gmail_send_email", args=args, summary="send", context={})
+
+    def test_two_confirmations_of_one_tool_both_verify(self):
+        gate = ActionGate()
+        ctx = SecurityContext(
+            mode="client",
+            source_type="mcp_server",
+            source_id="t",
+            confirmation_handler=_AcceptingHandler(),
+        )
+        asyncio.run(gate.confirm(self._proposal({"to": "a@example.com"}), ctx))
+        asyncio.run(gate.confirm(self._proposal({"to": "b@example.com"}), ctx))
+        ok_a, _ = gate.verify_commitment("gmail_send_email", {"to": "a@example.com"})
+        ok_b, _ = gate.verify_commitment("gmail_send_email", {"to": "b@example.com"})
+        assert (ok_a, ok_b) == (True, True)
+
+    def test_a_commitment_verifies_once(self):
+        gate = ActionGate()
+        ctx = SecurityContext(
+            mode="client",
+            source_type="mcp_server",
+            source_id="t",
+            confirmation_handler=_AcceptingHandler(),
+        )
+        asyncio.run(gate.confirm(self._proposal({"to": "a@example.com"}), ctx))
+        assert gate.verify_commitment("gmail_send_email", {"to": "a@example.com"})[0] is True
+        ok, reason = gate.verify_commitment("gmail_send_email", {"to": "a@example.com"})
+        assert ok is False
+        assert "no commitment" in reason
+
+    def test_pending_commitments_are_bounded(self):
+        gate = ActionGate()
+        ctx = SecurityContext(
+            mode="client",
+            source_type="mcp_server",
+            source_id="t",
+            confirmation_handler=_AcceptingHandler(),
+        )
+        for i in range(ActionGate.MAX_PENDING_PER_TOOL + 5):
+            asyncio.run(gate.confirm(self._proposal({"n": i}), ctx))
+        assert len(gate._commitments["gmail_send_email"]) == ActionGate.MAX_PENDING_PER_TOOL
+        assert gate.verify_commitment("gmail_send_email", {"n": 0})[0] is False
+        assert gate.verify_commitment("gmail_send_email", {"n": 36})[0] is True

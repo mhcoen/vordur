@@ -4397,3 +4397,88 @@ class TestUncoveredClassesAreReported:
         from vordur.security.types import PIIClass, PrivacyConfig
 
         assert PIIClass.CREDENTIAL not in PrivacyVault(PrivacyConfig())._uncovered_classes()
+
+
+class TestDetectorBounds:
+    """Two detectors were superlinear in the input, and one had a fixed year."""
+
+    def test_email_detection_is_linear_in_a_long_run(self):
+        import time
+
+        from vordur.security.pii_detect import detect
+
+        run = "A" * 200_000
+        started = time.perf_counter()
+        assert detect(run, classes=frozenset({PIIClass.EMAIL})).matches == []
+        assert time.perf_counter() - started < 1.0
+
+    def test_email_detection_is_unchanged_on_the_shapes_that_matter(self):
+        from vordur.security.pii_detect import detect
+
+        def emails(text: str) -> list[str]:
+            matches = detect(text, classes=frozenset({PIIClass.EMAIL})).matches
+            return sorted(m.value for m in matches)
+
+        assert emails("write to alice.b+tag@example.co.uk today") == ["alice.b+tag@example.co.uk"]
+        assert emails("x%y@host.org, and bob@example.com.") == ["bob@example.com", "x%y@host.org"]
+        assert emails("no address here @ all") == []
+        assert emails("prefix..dots@example.com") == ["prefix..dots@example.com"]
+
+    def test_a_date_of_birth_this_year_is_a_date_of_birth(self):
+        import datetime
+
+        from vordur.security.pii_detect import dob_valid
+
+        assert dob_valid(f"{datetime.date.today().year}-01-15") is True
+        assert dob_valid("1899-01-15") is False
+
+
+class TestSharedIndexReadsTakeTheLock:
+    """issue_batch grows the payload and trigram indexes under the vault lock.
+
+    The scans that read those indexes did not take it, so a scan running while
+    another thread issued a token could raise mid-iteration. Asserted on the
+    lock itself rather than by racing threads, which passes by luck.
+    """
+
+    class _CountingLock:
+        def __init__(self, inner):
+            self.inner = inner
+            self.acquired = 0
+
+        def __enter__(self):
+            self.acquired += 1
+            return self.inner.__enter__()
+
+        def __exit__(self, *exc):
+            return self.inner.__exit__(*exc)
+
+    def _vault_with_a_token(self):
+        guard = Guard(privacy=PrivacyConfig())
+        vault = guard._pipeline.vault
+        result = guard.deidentify("Contact alice@example.com about the invoice.")
+        assert result.findings
+        return guard, vault, result
+
+    def test_the_stray_payload_scan_reads_under_the_lock(self):
+        import re
+
+        _guard, vault, result = self._vault_with_a_token()
+        counting = self._CountingLock(vault._lock)
+        vault._lock = counting
+        # A body one symbol short of the issued one: not an exact payload, so
+        # the scan has to consult the trigram index to recognize the near miss.
+        body = re.search(r"\[\[GL:EMAIL:([A-Z0-9]+)\]\]", result.content).group(1)
+        near_miss = f"ref {body[:-1]} ok"
+        assert list(vault._proximity_candidates(near_miss))
+        assert counting.acquired >= 1
+        before = counting.acquired
+        assert vault._has_stray_issued_payload(near_miss) is True
+        assert counting.acquired > before
+
+    def test_the_diagnostic_scrub_reads_under_the_lock(self):
+        _guard, vault, _result = self._vault_with_a_token()
+        counting = self._CountingLock(vault._lock)
+        vault._lock = counting
+        vault._redact_known("alice@example.com was mentioned")
+        assert counting.acquired >= 1

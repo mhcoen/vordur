@@ -77,8 +77,9 @@ The source for each strip is in [mechanisms/](mechanisms/).
   [system map](https://mhcoen.github.io/vordur/demo/vordur_surface_map.html).
 - [Tutorials](../tutorials/README.md): step-by-step end-to-end integrations, each
   with a script you can run from the repo root.
-- [Benchmarks](../benchmarks/methodology.md): evaluation methodology and
-  [results](../benchmarks/results.md).
+- [Benchmarks](../benchmarks/methodology.md): evaluation methodology,
+  [results](../benchmarks/results.md), and the [reproduction guide](../REPRODUCE.md)
+  for re-running them from a clone.
 
 ## Framework integrations
 

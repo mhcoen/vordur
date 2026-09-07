@@ -546,3 +546,15 @@ class TestArgumentNamesAreNotEchoed:
         secret = self.CREDENTIALS[0]
         assert _safe_arg_label(secret) == _safe_arg_label(secret)
         assert _safe_arg_label(secret) != _safe_arg_label(self.CREDENTIALS[1])
+
+
+class TestPatternsMatchTheWholeValue:
+    """`$` also matches before a trailing newline; fullmatch does not."""
+
+    def test_a_trailing_newline_fails_the_pattern(self):
+        from vordur.security.validation import validate_arguments
+
+        assert validate_arguments("t", {"thread_handle": "abc"}).valid is True
+        result = validate_arguments("t", {"thread_handle": "abc\n"})
+        assert result.valid is False
+        assert any("thread_handle" in e for e in result.errors)

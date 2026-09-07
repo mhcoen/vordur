@@ -418,3 +418,39 @@ def test_html_sanitizer_handles_tag_with_none_attrs():
         result = sanitize(html, ContentType.HTML)
 
     assert "ok" in result.cleaned_text
+
+
+class TestHiddenClassScanIsLinear:
+    """The <style> scan used to walk to the closing brace once per opener."""
+
+    def test_hidden_classes_are_still_found(self):
+        from vordur.security.sanitizer import _hidden_classes
+
+        blob = (
+            ".a { color: red } .b { display:none } .c{visibility : hidden}"
+            " .d, .e { DISPLAY: NONE } @media print { .f { display: none } }"
+            " .g { display: block }"
+        )
+        found = _hidden_classes(blob)
+        assert found == {"b", "c", "e", "f"}, found
+
+    def test_a_declaration_before_the_opener_does_not_count(self):
+        from vordur.security.sanitizer import _hidden_classes
+
+        assert _hidden_classes("display:none .a { color: red }") == set()
+
+    def test_many_openers_without_a_close_stay_cheap(self):
+        import time
+
+        from vordur.security.sanitizer import _hidden_classes
+
+        blob = ".x{" * 20_000
+        started = time.perf_counter()
+        assert _hidden_classes(blob) == set()
+        assert time.perf_counter() - started < 1.0
+
+    def test_the_scan_runs_through_sanitize(self):
+        html = "<style>.h { display:none }</style><p class='h'>Payload</p><p>Kept</p>"
+        result = sanitize(html, ContentType.HTML)
+        assert "Payload" not in result.cleaned_text
+        assert "Kept" in result.cleaned_text

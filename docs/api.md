@@ -6,6 +6,8 @@
 
 Vörður exposes a stable facade: `vordur.Guard`.
 
+This page is the overview. [api_spec.md](api_spec.md) is the authoritative contract, with full signatures, defaults, return types, and error semantics; where the two differ, the specification wins.
+
 ## Core Class
 
 ```python
@@ -21,13 +23,24 @@ Canary provisioning and lifecycle:
 - `guard.canary_token -> str | None`: read-only token for trusted host code to place in private model context.
 - `guard.reset(canary_session_id=None)`: clear transient state while retaining the current logical session and canary; pass a new ID to rotate an already-enabled canary for a new logical session.
 
+## Session Lifetime
+
+A `Guard` is the state of one logical session, and none of that state is keyed by user:
+
+- **One `Guard` per session and per principal.** Shared across users, one user's untrusted ingest tightens another's tool calls and, with `privacy`, one user can re-identify another's tokens. Construct one per session, or call `reset()` only at a genuine session boundary.
+- **`principal_trust` is fixed at construction.** Every context passed to a check must carry the same value, or the call raises `ValueError("principal_trust mismatch: ...")`. The context builders take it as a keyword and default it to `UNTRUSTED`, matching the constructor.
+- **Sequential, not concurrent.** Drive a `Guard` from one thread or one asyncio task at a time. See [security.md](security.md#concurrency-and-thread-safety).
+
 ## Context Builders
 
 Use these to declare trust boundaries explicitly:
-- `Guard.context_mcp_server(server_id, source_trust=..., content_type=..., policy=...)`
-- `Guard.context_mcp_client(client_id, source_trust=..., content_type=..., policy=...)`
-- `Guard.context_document(document_id, content_type=..., policy=...)`
-- `Guard.context_web(source_id="web", content_type=..., policy=...)`
+- `Guard.context_mcp_server(server_id, source_trust=..., content_type=..., policy=..., principal_trust=...)`
+- `Guard.context_mcp_client(client_id, source_trust=..., content_type=..., policy=..., principal_trust=..., principal_id=...)`
+- `Guard.context_document(document_id, content_type=..., policy=..., principal_trust=...)`
+- `Guard.context_web(source_id="web", content_type=..., policy=..., principal_trust=...)`
+- `Guard.context_internal_sensitive(source_id="internal", content_type=..., policy=..., principal_trust=...)`: trusted but sensitive internal content such as credentials or customer records, labelled `SENSITIVE` so outbound checks refuse to copy it.
+
+Every builder takes `principal_trust`, which must equal the `Guard`'s own (see [Session Lifetime](#session-lifetime)). Only `context_mcp_client` takes `principal_id`, the one identity `check_outbound(egress_to_principal_id=...)` will exempt from the no-copy check.
 
 For additional source types (for example `email_content`, `calendar_content`), construct `SecurityContext` directly.
 
@@ -46,7 +59,7 @@ Recommended pattern for write-capable tools:
 
 - `guard.process_inbound(content, context) -> ProcessedContent`
 - `guard.check_tool_call(tool, args, context, authorization=..., binding=..., user_message=..., message_hash=..., recipient=...) -> GateResult`
-- `guard.check_outbound(content, context, has_quoting_directive=False, recipient=...) -> OutboundResult`
+- `guard.check_outbound(content, context, has_quoting_directive=False, recipient=..., egress_to_principal_id=...) -> OutboundResult`
 - `guard.validate_tool_args(tool, args) -> ValidationResult`
 - `await guard.confirm_action(tool, args, context, summary=..., ...) -> bool`
 - `await guard.guard_tool_call(tool, args, context, ...) -> GateResult`
@@ -55,13 +68,13 @@ Recommended pattern for write-capable tools:
 ### Manual Gating (L12) Behavior
 
 - `confirm_action(...)` and `guard_tool_call(..., require_confirmation=True)` rely on `context.confirmation_handler`.
-- If no handler is configured, confirmation fails closed (`False`) and the action is blocked.
+- If no handler is configured, confirmation fails closed: `confirm_action` returns `False`, `guard_tool_call` denies with `reason="Confirmation unavailable: no confirmation handler configured"`, and the audit event is `action_gate_unavailable` with `user_confirmed=None`, because no user was asked. `"User denied confirmation"` and `user_confirmed=False` are reserved for a handler that actually answered no.
 - For heightened scrutiny, pass `context_has_web_derived=True` to include the hardcoded warning context in the confirmation payload.
 - `guard_tool_call` escalates to confirmation automatically (even without `require_confirmation=True`) when policy requires it: `auto_confirm_destructive` for destructive tools, `context_has_web_derived=True` under `escalation_gate_enabled`, or a principal at or below `confirm_all_below`. Escalation fails closed with no handler.
 
 ## Privacy Vault (opt-in)
 
-Available only when the guard was constructed with `privacy=PrivacyConfig(...)`. The first three raise `ValueError` without it rather than returning something that looks like a result; `prepare_tool_call` instead passes the arguments through with `reason="privacy disabled"`, so a host can call it unconditionally in its dispatch path.
+Available only when the guard was constructed with `privacy=PrivacyConfig(...)`. The types these methods take and return (`PrivacyConfig`, `PIIClass`, `Destination`, `ClassPolicy`, `DeidentifyResult`, `ReidentifyResult`, `PreparedCall`, `PIIFinding`, `Detector`, `DetectedSpan`) are exported from the package root. The first three raise `ValueError` without it rather than returning something that looks like a result; `prepare_tool_call` instead passes the arguments through with `reason="privacy disabled"`, so a host can call it unconditionally in its dispatch path.
 
 - `guard.seed_private_values(values: dict[str, PIIClass]) -> None`: declare values from a session the host has already authenticated. Exact by construction, since nothing is inferred.
 - `guard.deidentify(content: str) -> DeidentifyResult`: replace personal data with opaque tokens before the content reaches a model provider.

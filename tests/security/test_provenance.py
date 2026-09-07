@@ -511,3 +511,67 @@ class TestEgressToPrincipalId:
         )
         assert not allowed
         assert "sensitive" in reason
+
+
+class TestSessionBudget:
+    """What one session retains is bounded, and the bound refuses, not evicts.
+
+    Evicting the oldest span would let an attacker flush a sensitive span out
+    of the tracker by ingesting enough junk after it and then copy it out
+    unchecked. So the tracker refuses new content past the budget, and keeps
+    everything it already holds.
+    """
+
+    def _span(self, text: str) -> ProvenancedSpan:
+        return ProvenancedSpan(
+            text=text,
+            source_type="web_content",
+            source_id="x",
+            source_trust=TrustLevel.UNTRUSTED,
+        )
+
+    def test_windows_are_built_once_at_ingest(self):
+        tracker = ProvenanceTracker()
+        text = "The quick brown fox jumps over the lazy dog while the farmer counts his sheep"
+        tracker.add_span(self._span(text))
+        assert len(tracker._windows) == 1
+        assert tracker.retained_chars == len(tracker._windows[0][0])
+        allowed, reason = tracker.check_outbound(text)
+        assert allowed is False
+        assert "Verbatim overlap" in reason
+
+    def test_the_character_budget_refuses_and_keeps_what_it_holds(self, monkeypatch):
+        import vordur.security.provenance as prov
+
+        monkeypatch.setattr(prov, "MAX_PROVENANCE_CHARS", 60)
+        tracker = ProvenanceTracker()
+        first = "secret merger plan for the northern acquisition"
+        tracker.add_span(self._span(first))
+        assert tracker.budget_refusal("x" * 5) is None
+        refusal = tracker.budget_refusal("y" * 40)
+        assert refusal is not None
+        assert "beyond the 60" in refusal
+        with pytest.raises(prov.ProvenanceBudgetError):
+            tracker.add_span(self._span("y" * 40))
+        # The span that was already in is still checked against.
+        assert len(tracker._spans) == 1
+        allowed, _ = tracker.check_outbound(first)
+        assert allowed is False
+
+    def test_the_span_count_budget_refuses(self, monkeypatch):
+        import vordur.security.provenance as prov
+
+        monkeypatch.setattr(prov, "MAX_PROVENANCE_SPANS", 2)
+        tracker = ProvenanceTracker()
+        tracker.add_span(self._span("one"))
+        tracker.add_span(self._span("two"))
+        refusal = tracker.budget_refusal("three")
+        assert refusal is not None
+        assert "2 spans" in refusal
+        with pytest.raises(prov.ProvenanceBudgetError):
+            tracker.add_span(self._span("three"))
+
+    def test_the_budget_counts_normalized_characters(self):
+        tracker = ProvenanceTracker()
+        tracker.add_span(self._span("A  B   C"))
+        assert tracker.retained_chars < len("A  B   C")

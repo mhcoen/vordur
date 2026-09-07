@@ -854,3 +854,40 @@ class TestEgressToPrincipalIdEndToEnd:
         assert "principal_id" not in inspect.signature(Guard.context_mcp_server).parameters
         assert "principal_id" not in inspect.signature(Guard.context_document).parameters
         assert "principal_id" not in inspect.signature(Guard.context_web).parameters
+
+
+def test_an_audit_logger_that_cannot_log_is_refused_at_construction():
+    """It used to be accepted and then ignored on every event."""
+    with pytest.raises(TypeError, match="audit_logger"):
+        Guard(audit_logger=object())
+
+
+def test_the_package_root_exports_what_the_guard_methods_take_and_return():
+    import vordur
+
+    for name in (
+        "PrivacyConfig",
+        "PIIClass",
+        "Destination",
+        "ClassPolicy",
+        "DeidentifyResult",
+        "ReidentifyResult",
+        "PreparedCall",
+        "PIIFinding",
+        "Detector",
+        "DetectedSpan",
+        "ConfirmationHandler",
+        "AuditLogger",
+        "SanitizationResult",
+        "RateLimitResult",
+        "ExtractionPolicy",
+    ):
+        assert name in vordur.__all__, name
+        assert getattr(vordur, name) is not None
+
+
+def test_the_guard_docstring_states_the_session_contract():
+    doc = " ".join((Guard.__doc__ or "").split())
+    assert "One Guard per session" in doc
+    assert "principal_trust" in doc
+    assert "one thread or one asyncio task" in doc

@@ -9,7 +9,7 @@ This guide is for integrating `vordur` quickly into any LLM-based app, not only 
 ## 1) Install and Sanity Check
 
 ```bash
-pip install git+https://github.com/mhcoen/vordur.git
+pip install vordur
 ```
 
 Install from source, not PyPI: the published `vordur` package is 1.1.0 and predates the
@@ -57,7 +57,7 @@ Use validation, authorization, and binding before any sensitive tool execution.
 ```python
 from vordur import Guard, PolicyConfig
 
-guard = Guard()
+guard = Guard()  # in an application, the same Guard that handled step 2
 tool = "gmail_send_email"
 args = {"to": "alice@example.com", "subject": "Update", "body": "Hello"}
 msg = "send an update email to alice@example.com"
@@ -113,6 +113,10 @@ outbound = guard.check_outbound(
 if not outbound.allowed:
     raise PermissionError(outbound.reason)
 ```
+
+## One Guard per Session
+
+The steps above share one `guard` on purpose. A `Guard` carries the state of one logical session: what untrusted content it has seen, what it has blocked at egress, and what that means for the next tool call. None of it is keyed by user, so a single `Guard` shared across users leaks one user's risk into another's session. Construct one `Guard` per session, or `reset()` it only at a genuine session boundary, and drive it from one thread or task at a time. Every context passed to it must carry the same `principal_trust` the `Guard` was built with, or the call raises `ValueError`. See [Session Lifetime](api.md#session-lifetime).
 
 ## Interaction Examples
 

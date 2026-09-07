@@ -75,8 +75,8 @@ def test_advertised_public_exports_match_the_package():
 
     exported = set(vordur.__all__)
     assert "Guard" in exported
-    # Twelve more are public and importable; the spec must not claim otherwise.
-    assert len(exported) == 13
+    # Everything a Guard method accepts or returns is importable from the root.
+    assert len(exported) >= 28
     for name in exported:
         assert hasattr(vordur, name), name
 
@@ -98,7 +98,7 @@ def test_runtime_dependency_count_is_stated_accurately():
     assert "There are three" in contributing
 
 
-@pytest.mark.parametrize("stale", ["3.14", "6,443", "729 cases"])
+@pytest.mark.parametrize("stale", ["3.14", "6,443", "729 cases", "~74%", "~13%"])
 def test_reproduce_guide_does_not_quote_stale_figures(stale):
     """These drifted silently because nothing checked them."""
     assert stale not in (ROOT / "REPRODUCE.md").read_text()
@@ -1061,3 +1061,122 @@ def test_meets_budget_dev_is_computed_from_the_dev_split():
     assert '"meets_budget_test": (point.fp_per_1k_neg <= b)' in source
     # The discredited form must not come back.
     assert '"meets_budget_dev": (point.fp_per_1k_neg <= b)' not in source
+
+
+# --- The API contract covers the API ---------------------------------------
+#
+# These pin the reference to the code. A public method with no section is
+# unspecified rather than private, a reason string a caller matches on has to
+# be the one they will actually see, and the session contract has to be stated
+# on the pages a reader starts from, not only in the architecture document.
+
+
+def _api_spec() -> str:
+    return (DOCS / "api_spec.md").read_text()
+
+
+def _section(text: str, heading: str) -> str:
+    assert heading in text, heading
+    return text.split(heading, 1)[1].split("\n### ", 1)[0]
+
+
+def test_api_spec_has_a_section_for_every_public_guard_member():
+    import inspect
+
+    from vordur import Guard
+
+    headings = set(re.findall(r"^### .*?`([A-Za-z_]+)`", _api_spec(), re.M))
+    public = [n for n, _ in inspect.getmembers(Guard) if not n.startswith("_")]
+    missing = [n for n in public if n not in headings]
+    assert not missing, f"public Guard members with no api_spec section: {missing}"
+
+
+def test_api_spec_lists_every_field_of_the_config_and_context_types():
+    import dataclasses
+
+    from vordur.security.types import PolicyConfig, SecurityContext
+
+    spec = _api_spec()
+    for cls in (PolicyConfig, SecurityContext):
+        section = _section(spec, f"### Dataclass: `{cls.__name__}`")
+        missing = [f.name for f in dataclasses.fields(cls) if f"`{f.name}:" not in section]
+        assert not missing, f"{cls.__name__} fields undocumented: {missing}"
+
+
+def test_every_context_builder_documents_the_principal_trust_keyword():
+    """The keyword exists because a mismatch raises; a builder without it in the
+    spec reads as if the default were the only option."""
+    spec = _api_spec()
+    builders = [
+        "context_mcp_server",
+        "context_mcp_client",
+        "context_document",
+        "context_web",
+        "context_internal_sensitive",
+    ]
+    for name in builders:
+        section = _section(spec, f"### Static Method: `{name}`")
+        assert "principal_trust: TrustLevel = TrustLevel.UNTRUSTED" in section, name
+    assert "principal_id: str | None = None" in _section(
+        spec, "### Static Method: `context_mcp_client`"
+    )
+
+
+def test_documented_reason_strings_are_the_ones_the_code_emits():
+    api = (ROOT / "src" / "vordur" / "api.py").read_text()
+    pipeline = (ROOT / "src" / "vordur" / "security" / "pipeline.py").read_text()
+    spec = _api_spec()
+    overview = (DOCS / "api.md").read_text()
+    for literal, source in [
+        ("Confirmation unavailable: no confirmation handler configured", api),
+        ("User denied confirmation", api),
+        ("action_gate_unavailable", api),
+        ("principal_trust mismatch", pipeline),
+    ]:
+        assert literal in source, f"{literal!r} is no longer in the code"
+        assert literal in spec, f"{literal!r} is not in api_spec.md"
+        assert literal in overview, f"{literal!r} is not in api.md"
+
+
+def test_the_audit_contract_names_every_event_type_the_facade_emits():
+    api = (ROOT / "src" / "vordur" / "api.py").read_text()
+    emitted = set(re.findall(r'event_type="([a-z_]+)"', api))
+    contract = _api_spec().split("## Audit Logger Contract", 1)[1]
+    listed = set(re.findall(r"^- `([a-z_]+)`$", contract, re.M))
+    assert emitted == listed, {"unlisted": emitted - listed, "stale": listed - emitted}
+
+
+def test_the_authorization_ttl_in_the_spec_is_the_engines_default():
+    import inspect
+
+    from vordur.security.policy_engine import PolicyEngine
+
+    ttl = inspect.signature(PolicyEngine.__init__).parameters["auth_ttl"].default
+    assert f"older than {int(ttl)} seconds" in _api_spec()
+
+
+def test_the_session_contract_is_stated_where_a_reader_starts():
+    for page in ("api.md", "api_spec.md", "quick_start.md"):
+        text = (DOCS / page).read_text()
+        assert "per session" in text.lower(), page
+        assert "principal_trust" in text, page
+    locks = sum(
+        len(re.findall(r"threading\.R?Lock\(", path.read_text()))
+        for path in (ROOT / "src" / "vordur" / "security").glob("*.py")
+    )
+    security = (DOCS / "security.md").read_text()
+    assert locks == 2, f"security.md describes two internal locks, the code has {locks}"
+    assert "Two operations are internally synchronized" in security
+
+
+def test_the_quick_start_builds_one_guard_and_says_so():
+    text = (DOCS / "quick_start.md").read_text()
+    assert text.count("guard = Guard()") == 2
+    assert "the same Guard that handled step 2" in text
+    assert "## One Guard per Session" in text
+
+
+def test_contributing_states_the_semver_rule_the_changelog_follows():
+    text = (ROOT / "CONTRIBUTING.md").read_text()
+    assert "major version bump" in text
+    assert "minor version bump" not in text

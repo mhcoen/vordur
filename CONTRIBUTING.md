@@ -15,7 +15,7 @@ This guide covers practical contribution steps. For security reporting, see [SEC
 ## Where Contributions Need Care
 
 - **Sanitizer / detector heuristic changes**: these change the false-positive and false-negative profile. Include benchmark deltas (`benchmarks/run_benchmarks.py`) so reviewers can see the tradeoff.
-- **Public API changes** (anything exported from `vordur` or `vordur.security`): require a deprecation path and a CHANGELOG entry. Breaking changes need a minor version bump.
+- **Public API changes** (anything exported from `vordur` or `vordur.security`): require a deprecation path and a CHANGELOG entry. A breaking change needs a major version bump, and a changed default that alters a verdict counts as breaking: 2.0.0 was cut for `escalated_tool_policy` alone.
 - **Benchmark dataset changes**: governed separately. See `benchmarks/methodology.md`. Do not modify dataset files (`CSE-8000`, `CBX-1200`, etc.) as part of a feature PR.
 - **The paper** (`paper/`): off-limits for contributor PRs. Open an issue if you find an error.
 

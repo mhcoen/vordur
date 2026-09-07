@@ -104,7 +104,24 @@ def joined_call_payload(args: object) -> str:
 
 
 class Guard:
-    """High-level facade for vordur security workflows."""
+    """High-level facade for vordur security workflows.
+
+    A ``Guard`` is the state of one logical session: the contamination and
+    escalation flags, provenance spans, DLP buffers, rate counters,
+    action-gate commitments, the remembered canary, and the privacy vault.
+    None of it is keyed by user, so the contract is:
+
+    - **One Guard per session and per principal.** Shared across users, one
+      user's untrusted ingest tightens another's tool calls and, with
+      ``privacy``, one user can re-identify another's tokens. Construct one
+      per session, or call :meth:`reset` only at a genuine session boundary.
+    - **``principal_trust`` is fixed at construction.** Every context passed
+      to a check must carry the same value; a mismatch raises ``ValueError``.
+    - **Sequential, not concurrent.** Session state is mutated without
+      internal synchronization beyond the rate limiter's confirmation
+      finalize and the vault's issuance lock. Drive a Guard from one thread
+      or one asyncio task at a time.
+    """
 
     def __init__(
         self,
@@ -122,6 +139,13 @@ class Guard:
         if vault_store is not None and privacy is None:
             raise ValueError(
                 "vault_store needs privacy=PrivacyConfig(...): there is no vault to persist"
+            )
+        # An audit logger without a log method was accepted and then ignored
+        # on every event, so the trail a deployment configured never existed
+        # and nothing said so. Refuse it here, where the operator is looking.
+        if audit_logger is not None and not callable(getattr(audit_logger, "log", None)):
+            raise TypeError(
+                "audit_logger must be an AuditLogger or an object with a callable log(event)"
             )
         self._pipeline = SecurityPipeline(
             audit_logger=audit_logger,
