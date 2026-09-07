@@ -10,7 +10,7 @@ from vordur.security.action_gate import ActionGate, ActionProposal
 from vordur.security.audit import AuditLogger
 from vordur.security.error_sanitizer import sanitize_error
 from vordur.security.pipeline import SecurityPipeline
-from vordur.security.policy_engine import DESTRUCTIVE_TOOLS
+from vordur.security.policy_engine import is_destructive_tool
 from vordur.security.request_binding import create_binding
 from vordur.security.types import (
     AuditEvent,
@@ -740,7 +740,7 @@ class Guard:
     ) -> GateResult:
         """Full tool-call guard flow: validation -> policy -> optional confirmation."""
         # L12: auto-require confirmation for destructive tools when policy says so
-        if context.policy.auto_confirm_destructive and tool in DESTRUCTIVE_TOOLS:
+        if context.policy.auto_confirm_destructive and is_destructive_tool(tool, context.policy):
             require_confirmation = True
 
         # INV-MUSE-7 / confirm_all_below: escalate to enhanced confirmation when

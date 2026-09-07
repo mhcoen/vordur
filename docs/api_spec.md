@@ -574,6 +574,7 @@ Fields:
 - `tool_allowlist: dict[tuple, Any] | None = None` (`None` = no allowlist, fall through; `{}` = deny all tools)
 - `directive_patterns: dict[str, Any] = {}` (reserved / not yet wired; not consulted by the policy engine today, retained for forward compatibility)
 - `enable_destructive: bool = False`
+- `destructive_tools: frozenset[str] | None = None` (keyword-only; replaces the built-in destructive-tool set for authorization and automatic confirmation; an empty set disables destructive classification)
 - `capability_scopes: dict[str, Any] | None = None` (`None` = no allowlist; `{}` = deny all tools)
 - `client_id: str | None = None`
 - `server_default_deny: bool = False` (server mode: when `True`, a missing `capability_scopes` denies all tools instead of allowing by default)
@@ -613,6 +614,7 @@ Fields:
 - `source_id: str`
 - `source_trust: TrustLevel = TrustLevel.UNTRUSTED` (per-content trust; `TRUSTED` or `UNTRUSTED` only)
 - `principal_trust: TrustLevel = TrustLevel.UNTRUSTED` (per-session caller trust; `TRUSTED`, `SEMI_TRUSTED`, or `UNTRUSTED`)
+- `principal_id: str | None = None` (keyword-only; authenticated author identity for the egress-recipient exemption, never inferred from `source_id`; leave unset on tool/server output)
 - `sensitivity: SensitivityLevel = SensitivityLevel.PUBLIC`
 - `content_type: ContentType = ContentType.PLAINTEXT`
 - `policy: PolicyConfig = PolicyConfig()`
