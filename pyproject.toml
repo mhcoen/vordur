@@ -79,7 +79,7 @@ vault = [
 # commit. Dependabot tracks these and opens a PR when a version moves, so the
 # upgrade lands as its own reviewable change.
 lint = [
-  "ruff==0.16.5",
+  "ruff==0.16.6",
   "bandit==1.9.4",
 ]
 # Kept out of `dev` on purpose. The pip-audit job freezes the environment to
