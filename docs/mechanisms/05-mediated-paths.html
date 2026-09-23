@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Path Around the Guard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap">
+
+<style>
+  :root {
+    --paper:#E9EDF1; --panel:#FBFCFD; --ink:#121821; --ink-2:#4A5563; --ink-3:#6C7887;
+    --rule:#C3CCD6; --rule-2:#DCE3EA;
+    --taint:#A8324E; --taint-w:#F3DDE3; --memo:#2F6F6B; --memo-w:#DCEBE9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:#0E1319; --panel:#161D26; --ink:#DDE4EC; --ink-2:#A6B2C0; --ink-3:#7C8998;
+      --rule:#2C3846; --rule-2:#232D39;
+      --taint:#E4658A; --taint-w:#3A1C26; --memo:#6FBDB6; --memo-w:#14312F;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:#0E1319; --panel:#161D26; --ink:#DDE4EC; --ink-2:#A6B2C0; --ink-3:#7C8998;
+    --rule:#2C3846; --rule-2:#232D39;
+    --taint:#E4658A; --taint-w:#3A1C26; --memo:#6FBDB6; --memo-w:#14312F;
+  }
+
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width:780px; margin:0 auto; padding:56px 24px 88px; display:flex; flex-direction:column; gap:40px; }
+  header { display:flex; flex-direction:column; gap:14px; }
+  .eyebrow {
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px;
+    letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-3); margin:0;
+  }
+  h1 {
+    font-family:Archivo, ui-sans-serif, system-ui, sans-serif; font-weight:700;
+    font-size:clamp(2rem, 6vw, 2.9rem); line-height:1.08; letter-spacing:-0.02em;
+    margin:0; text-wrap:balance;
+  }
+  .standfirst { font-size:1.06rem; color:var(--ink-2); margin:0; max-width:62ch; }
+  .strip { display:flex; flex-direction:column; gap:20px; }
+  .panel {
+    background:var(--panel); border:1px solid var(--rule-2); border-radius:4px;
+    padding:20px 22px 18px; display:flex; flex-direction:column; gap:12px;
+  }
+  .panel-head { display:flex; align-items:baseline; gap:12px; border-bottom:1px solid var(--rule-2); padding-bottom:10px; }
+  .num {
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; font-weight:500;
+    color:var(--ink-3); letter-spacing:0.08em; flex:none;
+  }
+  .beat {
+    font-family:Archivo, ui-sans-serif, system-ui, sans-serif; font-weight:500;
+    font-size:1.02rem; letter-spacing:-0.01em; margin:0;
+  }
+  figure { margin:0; }
+  .fig-scroll { overflow-x:auto; }
+  svg { display:block; width:100%; max-width:100%; height:auto; color:var(--ink-2); }
+  figcaption { font-size:0.93rem; color:var(--ink-2); margin-top:10px; max-width:64ch; }
+  code {
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.88em;
+    color:var(--ink); background:var(--rule-2); padding:0.1em 0.36em; border-radius:3px;
+  }
+
+  .box   { fill:none; stroke:currentColor; stroke-width:1.4; }
+  .box-f { fill:var(--panel); stroke:currentColor; stroke-width:1.4; }
+  .lbl   { fill:var(--ink); font-family:"IBM Plex Sans", sans-serif; font-size:13px; }
+  .lbl-s { fill:var(--ink-3); font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.04em; }
+  .arrow { stroke:currentColor; stroke-width:1.4; fill:none; }
+  .faint { opacity:0.4; }
+  .taint-stroke { stroke:var(--taint); stroke-width:1.6; fill:none; }
+  .taint-fill   { fill:var(--taint); }
+  .taint-box    { fill:var(--taint-w); stroke:var(--taint); stroke-width:1.4; }
+  .taint-lbl    { fill:var(--taint); font-family:"IBM Plex Mono", monospace; font-size:11px; font-weight:500; }
+  .memo-box     { fill:var(--memo-w); stroke:var(--memo); stroke-width:1.4; }
+  .memo-lbl     { fill:var(--memo); font-family:"IBM Plex Mono", monospace; font-size:11px; font-weight:500; }
+  .memo-stroke  { stroke:var(--memo); stroke-width:1.6; fill:none; }
+  .memo-fill    { fill:var(--memo); }
+  .dash  { stroke-dasharray:4 3; }
+
+  .coda { border-top:1px solid var(--rule); padding-top:28px; display:flex; flex-direction:column; gap:14px; }
+  h2 {
+    font-family:Archivo, ui-sans-serif, system-ui, sans-serif; font-weight:700;
+    font-size:1.35rem; letter-spacing:-0.015em; margin:0; text-wrap:balance;
+  }
+  p { margin:0; max-width:64ch; }
+  p + p { margin-top:4px; }
+  .note { font-size:0.9rem; color:var(--ink-3); border-left:2px solid var(--rule); padding-left:14px; }
+
+  .backnav {
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px;
+    letter-spacing:0.04em; margin:0 0 -20px;
+  }
+  .backnav a { color:var(--ink-3); text-decoration:none; border-bottom:1px solid var(--rule); }
+  .backnav a:hover { color:var(--memo); border-bottom-color:var(--memo); }
+  .backnav a:focus-visible { outline:2px solid var(--memo); outline-offset:3px; }
+  .fig-scroll svg { min-width:520px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="backnav"><a href="index.html">&larr; all six mechanism strips</a></p>
+
+
+  <header>
+    <p class="eyebrow">Vörður &middot; mechanism strip 05</p>
+    <h1>The Path Around the Guard</h1>
+    <p class="standfirst">
+      Installed is not the same as in the way. Vörður protects the paths that run through
+      it, and a path that skips it is not merely unprotected: it quietly makes every other
+      path decide on incomplete information.
+    </p>
+  </header>
+
+  <div class="strip">
+
+    <!-- 1 -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="num">01</span>
+        <p class="beat">The shape you designed</p>
+      </div>
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 640 178" role="img" aria-label="Four application paths, ingest, tool calls, restoration and egress, all routed through Vörður, which writes and reads one session state.">
+            <defs>
+              <marker id="m1" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                <polygon points="0,0 8,4 0,8" fill="currentColor"></polygon>
+              </marker>
+            </defs>
+
+            <text x="16" y="22" class="lbl-s">application paths</text>
+            <rect x="16" y="32" width="150" height="28" rx="3" class="box"></rect>
+            <text x="91" y="51" class="lbl-s" text-anchor="middle">fetch a page</text>
+            <rect x="16" y="66" width="150" height="28" rx="3" class="box"></rect>
+            <text x="91" y="85" class="lbl-s" text-anchor="middle">call a tool</text>
+            <rect x="16" y="100" width="150" height="28" rx="3" class="box"></rect>
+            <text x="91" y="119" class="lbl-s" text-anchor="middle">restore a value</text>
+            <rect x="16" y="134" width="150" height="28" rx="3" class="box"></rect>
+            <text x="91" y="153" class="lbl-s" text-anchor="middle">send a message</text>
+
+            <path d="M178 46 H236" class="arrow" marker-end="url(#m1)"></path>
+            <path d="M178 80 H236" class="arrow" marker-end="url(#m1)"></path>
+            <path d="M178 114 H236" class="arrow" marker-end="url(#m1)"></path>
+            <path d="M178 148 H236" class="arrow" marker-end="url(#m1)"></path>
+
+            <rect x="248" y="32" width="150" height="130" rx="3" class="memo-box"></rect>
+            <text x="323" y="94" class="memo-lbl" text-anchor="middle" style="font-size:13px">Vörður</text>
+            <text x="323" y="114" class="lbl-s" text-anchor="middle">every path</text>
+
+            <path d="M410 97 H468" class="memo-stroke" marker-end="url(#m1)"></path>
+            <rect x="480" y="70" width="144" height="54" rx="3" class="box-f"></rect>
+            <text x="552" y="94" class="lbl" text-anchor="middle">session state</text>
+            <text x="552" y="112" class="lbl-s" text-anchor="middle">written and read</text>
+          </svg>
+        </div>
+        <figcaption>
+          This is the arrangement every other strip in this series assumes. The threat model
+          calls it out as assumptions <code>A-AS1</code> and <code>A-AS2</code>, not as
+          guarantees, because only the application can make them true.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- 2 -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="num">02</span>
+        <p class="beat">One call takes the short way</p>
+      </div>
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 640 178" role="img" aria-label="One of the four paths, the page fetch, now goes directly to the model without passing through Vörður.">
+            <defs>
+              <marker id="m2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                <polygon points="0,0 8,4 0,8" fill="currentColor"></polygon>
+              </marker>
+              <marker id="m2t" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                <polygon points="0,0 8,4 0,8" class="taint-fill"></polygon>
+              </marker>
+            </defs>
+
+            <rect x="16" y="32" width="150" height="28" rx="3" class="taint-box"></rect>
+            <text x="91" y="51" class="taint-lbl" text-anchor="middle">fetch a page</text>
+            <rect x="16" y="66" width="150" height="28" rx="3" class="box"></rect>
+            <text x="91" y="85" class="lbl-s" text-anchor="middle">call a tool</text>
+            <rect x="16" y="100" width="150" height="28" rx="3" class="box"></rect>
+            <text x="91" y="119" class="lbl-s" text-anchor="middle">restore a value</text>
+            <rect x="16" y="134" width="150" height="28" rx="3" class="box"></rect>
+            <text x="91" y="153" class="lbl-s" text-anchor="middle">send a message</text>
+
+            <path d="M178 46 H206 V12 H540 V62" class="taint-stroke" marker-end="url(#m2t)"></path>
+            <text x="360" y="8" class="taint-lbl" text-anchor="middle">straight to the model</text>
+
+            <path d="M178 80 H236" class="arrow" marker-end="url(#m2)"></path>
+            <path d="M178 114 H236" class="arrow" marker-end="url(#m2)"></path>
+            <path d="M178 148 H236" class="arrow" marker-end="url(#m2)"></path>
+
+            <rect x="248" y="66" width="150" height="96" rx="3" class="memo-box"></rect>
+            <text x="323" y="110" class="memo-lbl" text-anchor="middle" style="font-size:13px">Vörður</text>
+            <text x="323" y="130" class="lbl-s" text-anchor="middle">three paths</text>
+
+            <rect x="480" y="70" width="144" height="54" rx="3" class="box-f"></rect>
+            <text x="552" y="102" class="lbl" text-anchor="middle">model</text>
+          </svg>
+        </div>
+        <figcaption>
+          Nobody decided to disable a control. Someone had a page already in hand, and calling
+          <code>process_inbound</code> on it looked like a formality.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- 3 -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="num">03</span>
+        <p class="beat">The entry nobody made</p>
+      </div>
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 640 172" role="img" aria-label="The session ledger in both sessions. The mediated fetch called process_inbound, which wrote contaminated equals true. The bypassed fetch called nothing, so its ledger has no entry.">
+            <text x="16" y="22" class="lbl-s">the same ledger, in both sessions, before the tool gate is asked</text>
+            <rect x="16" y="32" width="608" height="30" rx="3" class="box"></rect>
+            <text x="32" y="52" class="lbl-s">session state</text>
+
+            <rect x="16" y="80" width="296" height="82" rx="3" class="memo-box"></rect>
+            <text x="32" y="104" class="lbl-s">fetch routed through the guard</text>
+            <line x1="32" y1="114" x2="296" y2="114" class="memo-stroke faint"></line>
+            <circle cx="40" cy="136" r="4" class="taint-fill"></circle>
+            <text x="54" y="141" class="taint-lbl">contaminated = true</text>
+            <text x="32" y="157" class="lbl-s" opacity="0.75">written by process_inbound</text>
+
+            <rect x="328" y="80" width="296" height="82" rx="3" class="taint-box"></rect>
+            <text x="344" y="104" class="lbl-s">fetch went direct</text>
+            <line x1="344" y1="114" x2="608" y2="114" class="taint-stroke faint"></line>
+            <text x="344" y="141" class="lbl-s" opacity="0.6">no entry</text>
+            <text x="344" y="157" class="lbl-s" opacity="0.75">nothing was called</text>
+          </svg>
+        </div>
+        <figcaption>
+          The mediated fetch called <code>process_inbound</code>, which wrote
+          <code>contaminated=true</code>. The bypassed fetch called nothing, so no entry was
+          written. Panel 04 reads both: its left column reads the entry, its right column reads
+          the blank.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- 4 -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="num">04</span>
+        <p class="beat">A mediated call, decided on incomplete information</p>
+      </div>
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 640 222" role="img" aria-label="The same correctly mediated wire_funds call is denied in the session whose fetch was mediated and allowed in the session whose fetch went direct.">
+            <text x="16" y="22" class="lbl-s">identical call, correctly routed through the tool gate in BOTH sessions</text>
+            <rect x="16" y="32" width="608" height="30" rx="3" class="box"></rect>
+            <text x="32" y="52" class="lbl-s">check_tool_call("wire_funds", {amount: 50000})</text>
+
+            <rect x="16" y="80" width="296" height="102" rx="3" class="memo-box"></rect>
+            <text x="32" y="104" class="lbl-s">fetch routed through the guard</text>
+            <line x1="32" y1="114" x2="296" y2="114" class="memo-stroke faint"></line>
+            <text x="32" y="138" class="memo-lbl">contaminated = true</text>
+            <text x="32" y="166" class="memo-lbl" style="font-size:13px">DENIED</text>
+
+            <rect x="328" y="80" width="296" height="102" rx="3" class="taint-box"></rect>
+            <text x="344" y="104" class="lbl-s">fetch went direct</text>
+            <line x1="344" y1="114" x2="608" y2="114" class="taint-stroke faint"></line>
+            <text x="344" y="138" class="lbl-s" opacity="0.7">state is empty</text>
+            <text x="344" y="166" class="taint-lbl" style="font-size:13px">ALLOWED</text>
+
+            <text x="16" y="192" class="lbl-s">both columns need contaminated_tool_policy=deny;</text>
+            <text x="16" y="208" class="lbl-s">at its default of allow, both are ALLOWED</text>
+          </svg>
+        </div>
+        <figcaption>
+          This is the beat worth sitting with. The tool gate was called correctly, ran
+          correctly, and returned the right answer for the facts it had. One unmediated path
+          upstream is enough to make a mediated path downstream wrong. The contrast needs
+          <code>contaminated_tool_policy=deny</code> to be visible at all: at its shipped
+          default of <code>allow</code> both columns read ALLOWED, and the missing ledger entry
+          costs nothing because nothing was going to read it. That does not soften the point,
+          it sharpens it. Turning the policy on is what makes the ledger matter, and an
+          unmediated path is what makes the ledger wrong.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- 5 -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="num">05</span>
+        <p class="beat">Change the address, not the call sites</p>
+      </div>
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 640 172" role="img" aria-label="Running Vörður as an OpenAI-compatible proxy means the application changes only its base_url, so traffic cannot reach the provider without passing through the checks.">
+            <defs>
+              <marker id="m5" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                <polygon points="0,0 8,4 0,8" fill="currentColor"></polygon>
+              </marker>
+              <marker id="m5m" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                <polygon points="0,0 8,4 0,8" class="memo-fill"></polygon>
+              </marker>
+            </defs>
+
+            <rect x="16" y="56" width="150" height="60" rx="3" class="box-f"></rect>
+            <text x="91" y="82" class="lbl" text-anchor="middle">application</text>
+            <text x="91" y="100" class="lbl-s" text-anchor="middle">no Vörður calls</text>
+
+            <line x1="178" y1="86" x2="238" y2="86" class="memo-stroke" marker-end="url(#m5m)"></line>
+            <text x="208" y="76" class="memo-lbl" text-anchor="middle">base_url</text>
+
+            <rect x="250" y="42" width="180" height="88" rx="3" class="memo-box"></rect>
+            <text x="340" y="80" class="memo-lbl" text-anchor="middle" style="font-size:13px">gateway</text>
+            <text x="340" y="100" class="lbl-s" text-anchor="middle">runs the checks itself</text>
+
+            <line x1="442" y1="86" x2="502" y2="86" class="arrow" marker-end="url(#m5)"></line>
+            <rect x="514" y="56" width="110" height="60" rx="3" class="box"></rect>
+            <text x="569" y="92" class="lbl" text-anchor="middle">provider</text>
+
+            <text x="16" y="152" class="lbl-s">there is no shorter way to the provider, so mediation stops being</text>
+            <text x="16" y="168" class="memo-lbl">something a developer has to remember at every call site</text>
+          </svg>
+        </div>
+        <figcaption>
+          An application changes only its <code>base_url</code> and makes no Vörður calls at
+          all. That removes the three assumptions above as things anyone can forget, because
+          the traffic has nowhere else to go.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- 6 -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="num">06</span>
+        <p class="beat">What the gateway still does not reach</p>
+      </div>
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 640 168" role="img" aria-label="The gateway ingests the tool role only, so untrusted text arriving on a user turn remains an application responsibility, and the prompt sent to the provider is inspected by nothing.">
+            <rect x="16" y="26" width="608" height="38" rx="3" class="memo-box"></rect>
+            <text x="32" y="50" class="memo-lbl">tool role messages</text>
+            <text x="608" y="50" class="memo-lbl" text-anchor="end">ingested and labelled</text>
+
+            <rect x="16" y="72" width="608" height="38" rx="3" class="taint-box"></rect>
+            <text x="32" y="96" class="taint-lbl">untrusted text arriving on a user turn</text>
+            <text x="608" y="96" class="taint-lbl" text-anchor="end">still yours: A-AS1</text>
+
+            <rect x="16" y="118" width="608" height="38" rx="3" class="taint-box"></rect>
+            <text x="32" y="142" class="taint-lbl">the prompt sent to the provider</text>
+            <text x="608" y="142" class="taint-lbl" text-anchor="end">inspected by nothing: T-IN13</text>
+          </svg>
+        </div>
+        <figcaption>
+          The proxy ingests the <code>tool</code> role and no other, so a deployment piping
+          untrusted text into user turns is back to routing that path itself. And the crossing
+          into the model is a channel no control inspects, in gateway mode exactly as in
+          library mode.
+        </figcaption>
+      </figure>
+    </section>
+
+  </div>
+
+  <section class="coda">
+    <h2>Why this one is not a bug report</h2>
+    <p>
+      Nothing in panels 02 through 04 is a defect in Vörður. Every call that ran, ran
+      correctly. The library cannot police a path it was never handed, and no amount of
+      internal hardening changes that: it is a property of where the code sits, not of how
+      well it works.
+    </p>
+    <p>
+      Which is why the assumptions are written down as assumptions. The threat model lists
+      <code>A-AS1</code> and <code>A-AS2</code> with the consequence of each being false, and
+      the README says production protection depends on mediating every relevant path. Those
+      sentences are doing real work, and this strip exists because a reader tends to nod past
+      them.
+    </p>
+    <p class="note">
+      Mechanism only. <code>process_inbound</code>, <code>check_tool_call</code>,
+      <code>A-AS1</code>, <code>A-AS2</code> and <code>T-IN13</code> are real, and panel 04
+      was measured rather than imagined: the same call, denied in one session and allowed in
+      the other. Verified against Vörður 2.0.0, commit <code>a0e51be</code>. API names,
+      policy fields and orderings can change too, not only numbers.
+    </p>
+  </section>
+
+</div>
+</body>
+</html>

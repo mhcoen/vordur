@@ -1,0 +1,56 @@
+---
+# Front matter is required for Jekyll to process this file.
+---
+
+@import "{{ site.theme }}";
+
+/* Target bare elements.
+ *
+ * Every rule here was previously scoped to a wrapper class this theme's layout
+ * does not emit, so none of them applied. The table fix appeared to work only
+ * because the page grew wide enough that no table overflowed its own box. The
+ * 390px diagnostic reported the offending elements with empty class names,
+ * which is what gave it away.
+ */
+/* The theme caps content width for readability; do not override it. Capping
+ * html and body is enough to stop a page growing past the viewport, and
+ * including the content container made desktop lines span the whole screen.
+ */
+html,
+body {
+  max-width: 100%;
+}
+
+/* Wide tables scroll within their own box instead of widening the page. */
+table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Code blocks scroll; the code inside them must not wrap, or the scroll box
+ * has nothing to scroll and long lines break mid-token instead.
+ */
+pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+pre code {
+  overflow-wrap: normal;
+  white-space: pre;
+}
+
+/* Inline code and long unbroken tokens in prose break rather than push. */
+code {
+  overflow-wrap: anywhere;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+body {
+  overflow-wrap: break-word;
+}

@@ -1,0 +1,5 @@
+url: https://mhcoen.github.io
+baseurl: /vordur
+title: Vörður
+description: Security controls for applications that use language models
+theme: jekyll-theme-primer

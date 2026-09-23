@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Mechanism Strips</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap">
+
+<style>
+  :root {
+    --paper:#E9EDF1; --panel:#FBFCFD; --ink:#121821; --ink-2:#4A5563; --ink-3:#6C7887;
+    --rule:#C3CCD6; --rule-2:#DCE3EA;
+    --taint:#A8324E; --taint-w:#F3DDE3; --memo:#2F6F6B; --memo-w:#DCEBE9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:#0E1319; --panel:#161D26; --ink:#DDE4EC; --ink-2:#A6B2C0; --ink-3:#7C8998;
+      --rule:#2C3846; --rule-2:#232D39;
+      --taint:#E4658A; --taint-w:#3A1C26; --memo:#6FBDB6; --memo-w:#14312F;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:#0E1319; --panel:#161D26; --ink:#DDE4EC; --ink-2:#A6B2C0; --ink-3:#7C8998;
+    --rule:#2C3846; --rule-2:#232D39;
+    --taint:#E4658A; --taint-w:#3A1C26; --memo:#6FBDB6; --memo-w:#14312F;
+  }
+
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width:820px; margin:0 auto; padding:60px 24px 96px; display:flex; flex-direction:column; gap:46px; }
+
+  header { display:flex; flex-direction:column; gap:14px; }
+  .eyebrow {
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px;
+    letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-3); margin:0;
+  }
+  h1 {
+    font-family:Archivo, ui-sans-serif, system-ui, sans-serif; font-weight:700;
+    font-size:clamp(2.1rem, 6.5vw, 3.1rem); line-height:1.06; letter-spacing:-0.022em;
+    margin:0; text-wrap:balance;
+  }
+  .standfirst { font-size:1.08rem; color:var(--ink-2); margin:0; max-width:62ch; }
+
+  h2 {
+    font-family:Archivo, ui-sans-serif, system-ui, sans-serif; font-weight:700;
+    font-size:1.3rem; letter-spacing:-0.015em; margin:0; text-wrap:balance;
+  }
+
+  section { display:flex; flex-direction:column; gap:16px; }
+
+  figure { margin:0; }
+  .fig-scroll { overflow-x:auto; }
+  svg { display:block; width:100%; max-width:100%; height:auto; color:var(--ink-2); }
+  figcaption { font-size:0.93rem; color:var(--ink-2); margin-top:10px; max-width:64ch; }
+
+  .cards { display:flex; flex-direction:column; gap:14px; }
+
+  a.card {
+    display:grid;
+    grid-template-columns:auto 1fr;
+    gap:6px 16px;
+    background:var(--panel);
+    border:1px solid var(--rule-2);
+    border-radius:4px;
+    padding:20px 22px;
+    text-decoration:none;
+    color:inherit;
+    transition:border-color 120ms ease, transform 120ms ease;
+  }
+  a.card:hover { border-color:var(--memo); }
+  a.card:focus-visible { outline:2px solid var(--memo); outline-offset:3px; }
+
+  .card .n {
+    grid-row:1 / span 3;
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:12px; font-weight:500; color:var(--ink-3);
+    letter-spacing:0.08em; padding-top:4px;
+  }
+  .card .t {
+    font-family:Archivo, ui-sans-serif, system-ui, sans-serif;
+    font-weight:700; font-size:1.16rem; letter-spacing:-0.015em; margin:0;
+  }
+  .card .claim { margin:0; color:var(--ink-2); font-size:0.97rem; max-width:58ch; }
+  .card .shows {
+    margin:0; font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:11px; letter-spacing:0.04em; color:var(--ink-3);
+  }
+
+  .conventions {
+    border-top:1px solid var(--rule);
+    padding-top:28px;
+    display:flex; flex-direction:column; gap:14px;
+  }
+  dl { margin:0; display:flex; flex-direction:column; gap:12px; }
+  .row { display:grid; grid-template-columns:112px 1fr; gap:16px; align-items:start; }
+  dt { font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:11px; letter-spacing:0.04em; color:var(--ink-3); padding-top:3px; }
+  dd { margin:0; color:var(--ink-2); font-size:0.95rem; max-width:58ch; }
+  .swatch { display:inline-block; width:10px; height:10px; border-radius:2px; vertical-align:baseline; margin-right:6px; }
+  .sw-memo { background:var(--memo); }
+  .sw-taint { background:var(--taint); }
+
+  p { margin:0; max-width:64ch; }
+  .note { font-size:0.9rem; color:var(--ink-3); border-left:2px solid var(--rule); padding-left:14px; }
+
+  .box   { fill:none; stroke:currentColor; stroke-width:1.4; }
+  .box-f { fill:var(--panel); stroke:currentColor; stroke-width:1.4; }
+  .lbl   { fill:var(--ink); font-family:"IBM Plex Sans", sans-serif; font-size:13px; }
+  .lbl-s { fill:var(--ink-3); font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.04em; }
+  .arrow { stroke:currentColor; stroke-width:1.4; fill:none; }
+  .faint { opacity:0.4; }
+  .taint-stroke { stroke:var(--taint); stroke-width:1.6; fill:none; }
+  .taint-fill   { fill:var(--taint); }
+  .taint-lbl    { fill:var(--taint); font-family:"IBM Plex Mono", monospace; font-size:11px; font-weight:500; }
+  .memo-box     { fill:var(--memo-w); stroke:var(--memo); stroke-width:1.4; }
+  .memo-lbl     { fill:var(--memo); font-family:"IBM Plex Mono", monospace; font-size:11px; font-weight:500; }
+  .memo-stroke  { stroke:var(--memo); stroke-width:1.6; fill:none; }
+  .memo-fill    { fill:var(--memo); }
+  .dash  { stroke-dasharray:4 3; }
+
+  @media (max-width: 560px) {
+    .row { grid-template-columns:1fr; gap:4px; }
+    a.card { grid-template-columns:1fr; }
+    .card .n { grid-row:auto; }
+  }
+
+  .backnav {
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px;
+    letter-spacing:0.04em; margin:0 0 -20px;
+  }
+  .backnav a { color:var(--ink-3); text-decoration:none; border-bottom:1px solid var(--rule); }
+  .backnav a:hover { color:var(--memo); border-bottom-color:var(--memo); }
+  .backnav a:focus-visible { outline:2px solid var(--memo); outline-offset:3px; }
+  .fig-scroll svg { min-width:520px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Vörður</p>
+    <h1>The Mechanism Strips</h1>
+    <p class="standfirst">
+      Six short strips, one mechanism each. They exist because the hard part of this library
+      is not any single check, it is that a decision late in a session can read something an
+      earlier stage wrote down. That is difficult to say in a paragraph and easy to show
+      across panels.
+    </p>
+  </header>
+
+  <section>
+    <h2>How they fit together</h2>
+    <figure>
+      <div class="fig-scroll">
+        <svg viewBox="0 0 780 340" role="img" aria-label="Strips one and two both write session risk that the tool gate later reads. Strips four, three and six are a sequence within a single call: tokens are resolved, then arguments bound, then two independent questions decided before dispatch.">
+          <defs>
+            <marker id="ix" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+              <polygon points="0,0 8,4 0,8" fill="currentColor"></polygon>
+            </marker>
+            <marker id="ixt" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+              <polygon points="0,0 8,4 0,8" class="taint-fill"></polygon>
+            </marker>
+            <marker id="ixm" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+              <polygon points="0,0 8,4 0,8" class="memo-fill"></polygon>
+            </marker>
+          </defs>
+
+          <text x="16" y="22" class="lbl-s">across a session</text>
+
+          <rect x="16" y="34" width="196" height="52" rx="3" class="box-f"></rect>
+          <text x="114" y="56" class="lbl" text-anchor="middle">untrusted content</text>
+          <text x="114" y="74" class="lbl-s" text-anchor="middle">strip 01</text>
+
+          <rect x="16" y="102" width="196" height="52" rx="3" class="box-f"></rect>
+          <text x="114" y="124" class="lbl" text-anchor="middle">blocked exfiltration</text>
+          <text x="114" y="142" class="lbl-s" text-anchor="middle">strip 02</text>
+
+          <path d="M224 60 H274 V88" class="taint-stroke" marker-end="url(#ixt)"></path>
+          <path d="M224 128 H274 V116" class="taint-stroke" marker-end="url(#ixt)"></path>
+          <text x="250" y="176" class="taint-lbl" text-anchor="middle">write</text>
+
+          <rect x="286" y="76" width="212" height="56" rx="3" class="box-f"></rect>
+          <text x="392" y="98" class="lbl" text-anchor="middle">session state</text>
+          <text x="392" y="118" class="taint-lbl" text-anchor="middle">contaminated &middot; escalated</text>
+
+          <line x1="510" y1="104" x2="566" y2="104" class="taint-stroke" marker-end="url(#ixt)"></line>
+          <text x="538" y="94" class="taint-lbl" text-anchor="middle">read</text>
+
+          <rect x="578" y="76" width="186" height="56" rx="3" class="box-f"></rect>
+          <text x="671" y="98" class="lbl" text-anchor="middle">the tool gate</text>
+          <text x="671" y="118" class="lbl-s" text-anchor="middle">every later call</text>
+
+          <line x1="16" y1="196" x2="764" y2="196" class="arrow dash faint"></line>
+
+          <text x="16" y="230" class="lbl-s">within a single call</text>
+
+          <rect x="16" y="242" width="176" height="52" rx="3" class="memo-box"></rect>
+          <text x="104" y="264" class="memo-lbl" text-anchor="middle">resolve tokens</text>
+          <text x="104" y="282" class="lbl-s" text-anchor="middle">strip 04</text>
+
+          <line x1="194" y1="268" x2="224" y2="268" class="memo-stroke" marker-end="url(#ixm)"></line>
+
+          <rect x="228" y="242" width="176" height="52" rx="3" class="memo-box"></rect>
+          <text x="316" y="264" class="memo-lbl" text-anchor="middle">bind canonical args</text>
+          <text x="316" y="282" class="lbl-s" text-anchor="middle">strip 03</text>
+
+          <line x1="406" y1="268" x2="436" y2="268" class="memo-stroke" marker-end="url(#ixm)"></line>
+
+          <rect x="440" y="230" width="188" height="76" rx="3" class="memo-box"></rect>
+          <text x="534" y="252" class="memo-lbl" text-anchor="middle">may the action run?</text>
+          <text x="534" y="272" class="memo-lbl" text-anchor="middle">may the bytes leave?</text>
+          <text x="534" y="292" class="lbl-s" text-anchor="middle">strip 06</text>
+
+          <line x1="630" y1="268" x2="654" y2="268" class="arrow" marker-end="url(#ix)"></line>
+
+          <rect x="658" y="242" width="106" height="52" rx="3" class="box"></rect>
+          <text x="711" y="273" class="lbl" text-anchor="middle">dispatch</text>
+
+          <text x="16" y="322" class="lbl-s">the order matters: bind a tokenized argument and the restored call fails its own check</text>
+
+        </svg>
+      </div>
+      <figcaption>
+        Strips 01 and 02 are the same loop seen from both ends: one writes session risk on the
+        way in, the other on the way out, and the tool gate reads whatever is there. Strips 04,
+        03 and 06 are not a loop but a sequence, and getting the first two the wrong way round
+        breaks the call. Strip 06 is where that sequence ends, and the point of it is that the
+        last step is two verdicts rather than one. Strip 05 is not on this diagram because it is
+        a condition on the whole of it: every arrow here assumes the application actually routed
+        that path through the library.
+      </figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>The strips</h2>
+    <div class="cards">
+
+      <a class="card" href="01-session-risk.html">
+        <span class="n">01</span>
+        <p class="t">What the Guard Remembers</p>
+        <p class="claim">
+          An instruction buried in a fetched page gets a fact written down. Two turns later a
+          perfectly well-formed transfer is refused, because the gate can read that fact and
+          four separate point tools cannot. The refusal needs a setting the library ships off.
+        </p>
+        <p class="shows">session risk &middot; contaminated_tool_policy &middot; why the composition falls short</p>
+      </a>
+
+      <a class="card" href="02-canary.html">
+        <span class="n">02</span>
+        <p class="t">A Marker Only the Model Sees</p>
+        <p class="claim">
+          A token placed where only the model can read it, with a copy kept where the model
+          cannot reach. If it ever appears on the way out, private context leaked, and no
+          amount of re-casing, spacing or hyphenating hides it.
+        </p>
+        <p class="shows">canary_token &middot; canonicalized matching &middot; escalation</p>
+      </a>
+
+      <a class="card" href="03-request-binding.html">
+        <span class="n">03</span>
+        <p class="t">The Call That Came Back Changed</p>
+        <p class="claim">
+          A user approved one action, in one conversation, at one moment. When the same call
+          returns with the recipient changed and three turns elapsed, it is no longer the call
+          that was approved.
+        </p>
+        <p class="shows">args_hash &middot; message_hash &middot; ttl &middot; change, not reuse</p>
+      </a>
+
+      <a class="card" href="04-privacy-vault.html">
+        <span class="n">04</span>
+        <p class="t">What the Provider Sees Instead</p>
+        <p class="claim">
+          Personal data the detectors recognize is replaced with tokens before the boundary,
+          and at a default configuration a name is not among them. Coming back is not automatic
+          either: two independent gates decide, both default to no.
+        </p>
+        <p class="shows">deidentify &middot; restore_policy &middot; destination_policy</p>
+      </a>
+
+      <a class="card" href="05-mediated-paths.html">
+        <span class="n">05</span>
+        <p class="t">The Path Around the Guard</p>
+        <p class="claim">
+          Installed is not the same as in the way. One fetch that skips the library leaves no
+          record, and a later call that <em>was</em> routed correctly then reads an empty
+          ledger and allows what a hardened policy would have refused.
+        </p>
+        <p class="shows">A-AS1 &middot; A-AS2 &middot; mediated paths &middot; what the gateway fixes</p>
+      </a>
+
+      <a class="card" href="06-two-questions.html">
+        <span class="n">06</span>
+        <p class="t">One Call, Two Questions</p>
+        <p class="claim">
+          A tool call looks like one decision. It is two, asked of different things and sharing
+          no code: an AWS key sails through the gate that authorized the send, and is stopped
+          by the check that never knew which tool it was reading.
+        </p>
+        <p class="shows">check_tool_call vs check_outbound &middot; A-AS9 &middot; every string leaf</p>
+      </a>
+
+    </div>
+  </section>
+
+  <section class="conventions">
+    <h2>Conventions, so you only learn them once</h2>
+    <dl>
+      <div class="row">
+        <dt><span class="swatch sw-taint"></span>red</dt>
+        <dd>Something untrusted, something recorded against the session, a refusal, or a value that crossed unprotected. Red is never decorative.</dd>
+      </div>
+      <div class="row">
+        <dt><span class="swatch sw-memo"></span>green</dt>
+        <dd>Something the library retains or vouches for: a remembered marker, a token it issued, a check that passed.</dd>
+      </div>
+      <div class="row">
+        <dt>numbering</dt>
+        <dd>Panels are numbered because the sequence carries the argument. Strip 01 panel 5 reads what panel 3 wrote; take the numbers away and the claim stops working.</dd>
+      </div>
+      <div class="row">
+        <dt>codas</dt>
+        <dd>Every strip ends with what its mechanism does <em>not</em> do. A binding is not cryptographic, a canary prevents nothing, the vault cannot find what nothing looks for.</dd>
+      </div>
+      <div class="row">
+        <dt>no numbers</dt>
+        <dd>No benchmark figures appear anywhere in the series, deliberately. Mechanisms stay true for years; measurements go stale and take the drawing with them.</dd>
+      </div>
+    </dl>
+    <p class="note">
+      Every API name, policy setting and field path in these strips is real and was read out
+      of the source rather than recalled. Token values, email addresses and account numbers
+      are invented for the drawings. Verified against Vörður 2.0.0, commit
+      <code>a0e51be</code>. Names, policy fields and orderings change too, not only numbers, so
+      the stamp is repeated on every page in the series. It is no longer the only guard on
+      these claims: <code>tests/test_mechanism_strips.py</code> re-runs each one against the
+      library and fails if either the library or the drawing moves without the other.
+    </p>
+  </section>
+
+</div>
+</body>
+</html>

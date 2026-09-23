@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>One Call, Two Questions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap">
+
+<style>
+  :root {
+    --paper:#E9EDF1; --panel:#FBFCFD; --ink:#121821; --ink-2:#4A5563; --ink-3:#6C7887;
+    --rule:#C3CCD6; --rule-2:#DCE3EA;
+    --taint:#A8324E; --taint-w:#F3DDE3; --memo:#2F6F6B; --memo-w:#DCEBE9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:#0E1319; --panel:#161D26; --ink:#DDE4EC; --ink-2:#A6B2C0; --ink-3:#7C8998;
+      --rule:#2C3846; --rule-2:#232D39;
+      --taint:#E4658A; --taint-w:#3A1C26; --memo:#6FBDB6; --memo-w:#14312F;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:#0E1319; --panel:#161D26; --ink:#DDE4EC; --ink-2:#A6B2C0; --ink-3:#7C8998;
+    --rule:#2C3846; --rule-2:#232D39;
+    --taint:#E4658A; --taint-w:#3A1C26; --memo:#6FBDB6; --memo-w:#14312F;
+  }
+
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width:780px; margin:0 auto; padding:56px 24px 88px; display:flex; flex-direction:column; gap:40px; }
+  header { display:flex; flex-direction:column; gap:14px; }
+  .eyebrow {
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px;
+    letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-3); margin:0;
+  }
+  h1 {
+    font-family:Archivo, ui-sans-serif, system-ui, sans-serif; font-weight:700;
+    font-size:clamp(2rem, 6vw, 2.9rem); line-height:1.08; letter-spacing:-0.02em;
+    margin:0; text-wrap:balance;
+  }
+  .standfirst { font-size:1.06rem; color:var(--ink-2); margin:0; max-width:62ch; }
+  .strip { display:flex; flex-direction:column; gap:20px; }
+  .panel {
+    background:var(--panel); border:1px solid var(--rule-2); border-radius:4px;
+    padding:20px 22px 18px; display:flex; flex-direction:column; gap:12px;
+  }
+  .panel-head { display:flex; align-items:baseline; gap:12px; border-bottom:1px solid var(--rule-2); padding-bottom:10px; }
+  .num {
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; font-weight:500;
+    color:var(--ink-3); letter-spacing:0.08em; flex:none;
+  }
+  .beat {
+    font-family:Archivo, ui-sans-serif, system-ui, sans-serif; font-weight:500;
+    font-size:1.02rem; letter-spacing:-0.01em; margin:0;
+  }
+  figure { margin:0; }
+  .fig-scroll { overflow-x:auto; }
+  svg { display:block; width:100%; max-width:100%; height:auto; color:var(--ink-2); }
+  figcaption { font-size:0.93rem; color:var(--ink-2); margin-top:10px; max-width:64ch; }
+  code {
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.88em;
+    color:var(--ink); background:var(--rule-2); padding:0.1em 0.36em; border-radius:3px;
+  }
+
+  .box   { fill:none; stroke:currentColor; stroke-width:1.4; }
+  .box-f { fill:var(--panel); stroke:currentColor; stroke-width:1.4; }
+  .lbl   { fill:var(--ink); font-family:"IBM Plex Sans", sans-serif; font-size:13px; }
+  .lbl-s { fill:var(--ink-3); font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.04em; }
+  .arrow { stroke:currentColor; stroke-width:1.4; fill:none; }
+  .faint { opacity:0.4; }
+  .taint-stroke { stroke:var(--taint); stroke-width:1.6; fill:none; }
+  .taint-fill   { fill:var(--taint); }
+  .taint-box    { fill:var(--taint-w); stroke:var(--taint); stroke-width:1.4; }
+  .taint-lbl    { fill:var(--taint); font-family:"IBM Plex Mono", monospace; font-size:11px; font-weight:500; }
+  .memo-box     { fill:var(--memo-w); stroke:var(--memo); stroke-width:1.4; }
+  .memo-lbl     { fill:var(--memo); font-family:"IBM Plex Mono", monospace; font-size:11px; font-weight:500; }
+  .memo-stroke  { stroke:var(--memo); stroke-width:1.6; fill:none; }
+  .memo-fill    { fill:var(--memo); }
+  .dash  { stroke-dasharray:4 3; }
+
+  .coda { border-top:1px solid var(--rule); padding-top:28px; display:flex; flex-direction:column; gap:14px; }
+  h2 {
+    font-family:Archivo, ui-sans-serif, system-ui, sans-serif; font-weight:700;
+    font-size:1.35rem; letter-spacing:-0.015em; margin:0; text-wrap:balance;
+  }
+  p { margin:0; max-width:64ch; }
+  p + p { margin-top:4px; }
+  .note { font-size:0.9rem; color:var(--ink-3); border-left:2px solid var(--rule); padding-left:14px; }
+
+  .backnav {
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px;
+    letter-spacing:0.04em; margin:0 0 -20px;
+  }
+  .backnav a { color:var(--ink-3); text-decoration:none; border-bottom:1px solid var(--rule); }
+  .backnav a:hover { color:var(--memo); border-bottom-color:var(--memo); }
+  .backnav a:focus-visible { outline:2px solid var(--memo); outline-offset:3px; }
+  .fig-scroll svg { min-width:520px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="backnav"><a href="index.html">&larr; all six mechanism strips</a></p>
+
+  <header>
+    <p class="eyebrow">Vörður &middot; mechanism strip 06</p>
+    <h1>One Call, Two Questions</h1>
+    <p class="standfirst">
+      A tool call looks like one decision, so people expect one verdict. It is really two
+      unrelated questions asked of the same request: whether the action may happen, and
+      whether the bytes it carries may leave. Passing one is not passing the other.
+    </p>
+  </header>
+
+  <div class="strip">
+
+    <!-- 1 -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="num">01</span>
+        <p class="beat">What everyone assumes is happening</p>
+      </div>
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 640 132" role="img" aria-label="A send_email call with three arguments enters a single box labelled the guard, and a single verdict comes out.">
+            <defs>
+              <marker id="a1" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                <polygon points="0,0 8,4 0,8" fill="currentColor"></polygon>
+              </marker>
+            </defs>
+
+            <text x="16" y="22" class="lbl-s">one call</text>
+            <rect x="16" y="32" width="186" height="82" rx="3" class="box"></rect>
+            <text x="32" y="54" class="lbl">send_email</text>
+            <text x="32" y="74" class="lbl-s">to: bob@example.com</text>
+            <text x="32" y="90" class="lbl-s">subject: Q3 summary</text>
+            <text x="32" y="106" class="lbl-s">body: as promised ...</text>
+
+            <path d="M214 73 H272" class="arrow" marker-end="url(#a1)"></path>
+
+            <rect x="284" y="46" width="152" height="54" rx="3" class="memo-box"></rect>
+            <text x="360" y="70" class="memo-lbl" text-anchor="middle" style="font-size:13px">the guard</text>
+            <text x="360" y="88" class="lbl-s" text-anchor="middle">one gate</text>
+
+            <path d="M448 73 H506" class="arrow" marker-end="url(#a1)"></path>
+
+            <rect x="518" y="46" width="106" height="54" rx="3" class="box-f"></rect>
+            <text x="571" y="78" class="lbl" text-anchor="middle">one verdict</text>
+          </svg>
+        </div>
+        <figcaption>
+          It is a natural reading. There is no single gate. The call is put to two checks that
+          share no code, read different things, and can disagree.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- 2 -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="num">02</span>
+        <p class="beat">Question one: may this action happen?</p>
+      </div>
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 640 176" role="img" aria-label="check_tool_call reads the tool name, argument shape and session state, runs validation, the session-risk gate, policy, rate limit and binding, and rules on the action.">
+            <defs>
+              <marker id="a2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                <polygon points="0,0 8,4 0,8" fill="currentColor"></polygon>
+              </marker>
+            </defs>
+
+            <text x="16" y="22" class="lbl-s">reads</text>
+            <rect x="16" y="46" width="146" height="86" rx="3" class="box"></rect>
+            <text x="30" y="70" class="lbl-s">the tool name</text>
+            <text x="30" y="92" class="lbl-s">the argument shape</text>
+            <text x="30" y="114" class="lbl-s">the session state</text>
+
+            <path d="M174 89 H222" class="arrow" marker-end="url(#a2)"></path>
+
+            <rect x="234" y="28" width="212" height="126" rx="3" class="memo-box"></rect>
+            <text x="340" y="50" class="memo-lbl" text-anchor="middle" style="font-size:12px">check_tool_call</text>
+            <text x="250" y="74" class="lbl-s">argument validation</text>
+            <text x="250" y="92" class="lbl-s">session-risk gate</text>
+            <text x="250" y="110" class="lbl-s">policy</text>
+            <text x="250" y="128" class="lbl-s">rate limit &middot; binding</text>
+
+            <path d="M458 89 H506" class="arrow" marker-end="url(#a2)"></path>
+
+            <rect x="518" y="62" width="106" height="54" rx="3" class="box-f"></rect>
+            <text x="571" y="86" class="lbl" text-anchor="middle">the action</text>
+            <text x="571" y="104" class="lbl-s" text-anchor="middle">may it run</text>
+          </svg>
+        </div>
+        <figcaption>
+          <code>check_tool_call</code> runs argument validation, the session-risk gate, policy,
+          the rate limit and binding, reading the tool name, the argument shape and the session
+          state. Shape is all it reads of the arguments: body <code>see ../../etc/passwd</code> is
+          refused, <code>Validation failed: Parameter body contains path traversal</code>; body
+          <code>key AKIAIOSFODNN7EXAMPLE</code> is allowed, <code>Non-destructive tool, implicit
+          allow</code>.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- 3 -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="num">03</span>
+        <p class="beat">The same field, and only one kind of trouble is seen</p>
+      </div>
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 640 148" role="img" aria-label="The same body argument twice: a path traversal string is denied by validation, an AWS access key in the same field is allowed.">
+            <defs>
+              <marker id="a3" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                <polygon points="0,0 8,4 0,8" fill="currentColor"></polygon>
+              </marker>
+              <marker id="a3t" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                <polygon points="0,0 8,4 0,8" class="taint-fill"></polygon>
+              </marker>
+            </defs>
+
+            <text x="16" y="22" class="lbl-s">the same argument, twice, through question one</text>
+
+            <rect x="16" y="34" width="352" height="42" rx="3" class="box"></rect>
+            <text x="32" y="60" class="lbl-s">body: &quot;see ../../etc/passwd&quot;</text>
+            <path d="M380 55 H424" class="arrow" marker-end="url(#a3)"></path>
+            <rect x="436" y="34" width="188" height="42" rx="3" class="box-f"></rect>
+            <text x="530" y="52" class="lbl" text-anchor="middle">denied</text>
+            <text x="530" y="68" class="lbl-s" text-anchor="middle">malformed</text>
+
+            <rect x="16" y="92" width="352" height="42" rx="3" class="taint-box"></rect>
+            <text x="32" y="118" class="taint-lbl">body: &quot;key AKIAIOSFODNN7EXAMPLE&quot;</text>
+            <path d="M380 113 H424" class="taint-stroke" marker-end="url(#a3t)"></path>
+            <rect x="436" y="92" width="188" height="42" rx="3" class="box-f"></rect>
+            <text x="530" y="110" class="taint-lbl" text-anchor="middle" style="font-size:13px">allowed</text>
+            <text x="530" y="126" class="lbl-s" text-anchor="middle">well formed</text>
+          </svg>
+        </div>
+        <figcaption>
+          Both strings sit in the same field of the same call. Question one read the bytes in
+          both cases and refused only the first, because it was asking whether they were well
+          formed, not whether they were yours to send. The threat model puts it in one line:
+          gating a send does not inspect what is sent.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- 4 -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="num">04</span>
+        <p class="beat">Question two: may these bytes leave?</p>
+      </div>
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 640 176" role="img" aria-label="check_outbound reads the bytes and the session state, running the vault token check, canary, DLP, provenance and the egress budget, and rules on the payload. It never reads the tool name.">
+            <defs>
+              <marker id="a4" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                <polygon points="0,0 8,4 0,8" fill="currentColor"></polygon>
+              </marker>
+            </defs>
+
+            <text x="16" y="22" class="lbl-s">reads</text>
+            <rect x="16" y="46" width="146" height="86" rx="3" class="box"></rect>
+            <text x="30" y="76" class="lbl-s">the bytes, and</text>
+            <text x="30" y="98" class="lbl-s">this session&rsquo;s</text>
+            <text x="30" y="120" class="lbl-s">memory of them</text>
+
+            <path d="M174 89 H222" class="arrow" marker-end="url(#a4)"></path>
+
+            <rect x="234" y="28" width="212" height="126" rx="3" class="memo-box"></rect>
+            <text x="340" y="50" class="memo-lbl" text-anchor="middle" style="font-size:12px">check_outbound</text>
+            <text x="250" y="74" class="lbl-s">unrestored token</text>
+            <text x="250" y="92" class="lbl-s">canary</text>
+            <text x="250" y="110" class="lbl-s">secrets &middot; overlap</text>
+            <text x="250" y="128" class="lbl-s">provenance &middot; egress budget</text>
+
+            <path d="M458 89 H506" class="arrow" marker-end="url(#a4)"></path>
+
+            <rect x="518" y="62" width="106" height="54" rx="3" class="box-f"></rect>
+            <text x="571" y="86" class="lbl" text-anchor="middle">the payload</text>
+            <text x="571" y="104" class="lbl-s" text-anchor="middle">may it leave</text>
+
+            <text x="16" y="166" class="memo-lbl">what it never reads: the tool name</text>
+          </svg>
+        </div>
+        <figcaption>
+          <code>check_outbound</code> runs the unrestored-vault-token check, the canary, secrets
+          and overlap, provenance, and the egress rate limit. What it never reads is the tool name,
+          which is what lets one check serve every channel. It does read session memory: the canary
+          is session state, and provenance compares against text this session ingested, retained
+          for that purpose. The limiter is the one panel 02 showed, asked again with
+          <code>action=outbound</code>. Apart from that limiter, no check in this box appears in
+          panel 02.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- 5 -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="num">05</span>
+        <p class="beat">Four outcomes, and one of them surprises people</p>
+      </div>
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 640 226" role="img" aria-label="A two by two matrix of action permitted or denied against content clean or carrying a secret. Only permitted plus clean is dispatched; the permitted plus secret cell is refused by question two.">
+            <text x="168" y="24" class="lbl-s">content: clean</text>
+            <text x="404" y="24" class="lbl-s">content: carries a secret</text>
+
+            <text x="16" y="94" class="lbl-s">action:</text>
+            <text x="16" y="110" class="lbl-s">permitted</text>
+            <text x="16" y="166" class="lbl-s">action:</text>
+            <text x="16" y="182" class="lbl-s">denied</text>
+
+            <rect x="162" y="34" width="222" height="66" rx="3" class="memo-box"></rect>
+            <text x="273" y="62" class="memo-lbl" text-anchor="middle" style="font-size:13px">dispatched</text>
+            <text x="273" y="82" class="lbl-s" text-anchor="middle">both questions said yes</text>
+
+            <rect x="398" y="34" width="226" height="66" rx="3" class="taint-box"></rect>
+            <text x="511" y="62" class="taint-lbl" text-anchor="middle" style="font-size:13px">refused</text>
+            <text x="511" y="82" class="lbl-s" text-anchor="middle">the tool gate said yes</text>
+
+            <rect x="162" y="112" width="222" height="66" rx="3" class="box-f"></rect>
+            <text x="273" y="140" class="lbl" text-anchor="middle">refused</text>
+            <text x="273" y="160" class="lbl-s" text-anchor="middle">by question one</text>
+
+            <rect x="398" y="112" width="226" height="66" rx="3" class="box-f"></rect>
+            <text x="511" y="140" class="lbl" text-anchor="middle">refused</text>
+            <text x="511" y="160" class="lbl-s" text-anchor="middle">by both, independently</text>
+
+            <text x="16" y="200" class="lbl-s">measured &middot; the denied-action rows set</text>
+            <text x="16" y="216" class="lbl-s">contaminated_tool_policy=deny, which is not the default</text>
+          </svg>
+        </div>
+        <figcaption>
+          Three of the four cells refuse, and the two questions never consult each other. The
+          top right is the one worth sitting with: the tool gate approved the action, and the
+          call still did not go, because approving <em>send an email</em> says nothing about
+          the twenty characters in the body.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- 6 -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="num">06</span>
+        <p class="beat">Asking question two of the wrong string</p>
+      </div>
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 640 244" role="img" aria-label="Two ways a per-field content check misses. First, the credential sits in a nested attachment filename rather than the body. Second, it is split across the subject and the body so neither field contains it, but the joined payload does.">
+            <text x="16" y="20" class="lbl-s">it was never in the field you checked</text>
+
+            <rect x="16" y="30" width="292" height="34" rx="3" class="box"></rect>
+            <text x="30" y="52" class="lbl-s">body: &quot;as promised&quot;</text>
+            <rect x="16" y="70" width="292" height="34" rx="3" class="taint-box"></rect>
+            <text x="30" y="92" class="taint-lbl">attachment.filename: &quot;AKIA...&quot;</text>
+
+            <rect x="330" y="30" width="294" height="34" rx="3" class="box-f"></rect>
+            <text x="344" y="52" class="taint-lbl">checking the body only &rarr; allowed</text>
+            <rect x="330" y="70" width="294" height="34" rx="3" class="memo-box"></rect>
+            <text x="344" y="92" class="memo-lbl">every string leaf &rarr; denied</text>
+
+            <line x1="16" y1="124" x2="624" y2="124" class="arrow faint"></line>
+
+            <text x="16" y="148" class="lbl-s">it is not in any field</text>
+
+            <rect x="16" y="158" width="292" height="26" rx="3" class="box"></rect>
+            <text x="30" y="176" class="lbl-s">subject: &quot;key AKIAIOSF&quot;</text>
+            <rect x="16" y="188" width="292" height="26" rx="3" class="box"></rect>
+            <text x="30" y="206" class="lbl-s">body: &quot;ODNN7EXAMPLE ends it&quot;</text>
+
+            <rect x="330" y="158" width="294" height="26" rx="3" class="box-f"></rect>
+            <text x="344" y="176" class="taint-lbl">each field alone &rarr; both clean</text>
+            <rect x="330" y="188" width="294" height="26" rx="3" class="memo-box"></rect>
+            <text x="344" y="206" class="memo-lbl">the joined payload &rarr; denied</text>
+
+            <text x="16" y="234" class="lbl-s">joined in traversal order, so this catches halves that land adjacent</text>
+          </svg>
+        </div>
+        <figcaption>
+          Row A: the body is clean; the key sits in <code>attachment.filename</code>. Checking the
+          body alone allows the call. <code>prepare_tool_call</code>, which walks every string leaf,
+          refuses it: <code>Secret pattern detected: AWS access key</code>. Row B: subject and body
+          are each clean; <code>joined_call_payload</code>, the string values concatenated, is
+          refused. The join follows field order, so a caller who controls it can keep the halves
+          apart, and nothing per-call reassembles a secret sent one half per request. Pinned by
+          <code>tests/gateway/test_gateway.py::test_reordered_fields_remain_a_known_gap</code>.
+        </figcaption>
+      </figure>
+    </section>
+
+  </div>
+
+  <section class="coda">
+    <h2>So who asks the second question</h2>
+    <p>
+      That depends on how Vörður is wired in, and it is the practical takeaway of the whole
+      strip. As a library, you do. The threat model states it as assumption <code>A-AS9</code>:
+      the application calls <code>check_outbound</code> on every outbound channel it can,
+      including the content carried in tool-call arguments, and enforces the block. Nothing in
+      the library can do that for a channel it was never shown.
+    </p>
+    <p>
+      Two arrangements take it off your hands, and one of them is off until you turn it on.
+      <code>prepare_tool_call</code> runs the content checks over every string leaf of the
+      argument tree, which is what the last panel showed, but only when the privacy vault is on, and
+      <code>Guard()</code> constructs without one: called on a default guard it returns
+      <code>allowed=True</code> with the reason <code>privacy disabled</code>, having scanned
+      nothing. So out of the box in library mode there is no per-leaf scan and no joined scan,
+      and the second question gets asked only where the application asks it. That is
+      <code>A-AS9</code> restated.
+    </p>
+    <p>
+      In gateway mode it is not yours to remember at all: the proxy checks every string in a
+      call's arguments, plus the joined payload, before the call is allowed through. That claim
+      is the one thing here not drawn from a panel, so it is worth naming what holds it up:
+      <code>test_a_credential_in_an_argument_is_refused</code>,
+      <code>test_a_nested_argument_is_reached</code>,
+      <code>test_a_split_secret_is_refused</code> and
+      <code>test_a_split_canary_is_refused</code>, all in
+      <code>tests/gateway/test_gateway.py</code>.
+    </p>
+    <p class="note">
+      Mechanism only. <code>check_tool_call</code>, <code>check_outbound</code>,
+      <code>prepare_tool_call</code> and <code>A-AS9</code> are real, and every outcome shown
+      was run rather than reasoned about: the panel 03 pair, the panel 05 matrix, and both rows
+      of panel 06. Verified against Vörður 2.0.0, commit <code>a0e51be</code>. API names,
+      layer numbering and orderings can change too, not only numbers.
+    </p>
+  </section>
+
+</div>
+</body>
+</html>
