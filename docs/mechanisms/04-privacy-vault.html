@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>What the Provider Sees Instead</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap">
+
+<style>
+  :root {
+    --paper:#E9EDF1; --panel:#FBFCFD; --ink:#121821; --ink-2:#4A5563; --ink-3:#6C7887;
+    --rule:#C3CCD6; --rule-2:#DCE3EA;
+    --taint:#A8324E; --taint-w:#F3DDE3; --memo:#2F6F6B; --memo-w:#DCEBE9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:#0E1319; --panel:#161D26; --ink:#DDE4EC; --ink-2:#A6B2C0; --ink-3:#7C8998;
+      --rule:#2C3846; --rule-2:#232D39;
+      --taint:#E4658A; --taint-w:#3A1C26; --memo:#6FBDB6; --memo-w:#14312F;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:#0E1319; --panel:#161D26; --ink:#DDE4EC; --ink-2:#A6B2C0; --ink-3:#7C8998;
+    --rule:#2C3846; --rule-2:#232D39;
+    --taint:#E4658A; --taint-w:#3A1C26; --memo:#6FBDB6; --memo-w:#14312F;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width:780px; margin:0 auto; padding:56px 24px 88px; display:flex; flex-direction:column; gap:40px; }
+  header { display:flex; flex-direction:column; gap:14px; }
+  .eyebrow {
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px;
+    letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-3); margin:0;
+  }
+  h1 {
+    font-family:Archivo, ui-sans-serif, system-ui, sans-serif; font-weight:700;
+    font-size:clamp(2rem, 6vw, 2.9rem); line-height:1.08; letter-spacing:-0.02em;
+    margin:0; text-wrap:balance;
+  }
+  .standfirst { font-size:1.06rem; color:var(--ink-2); margin:0; max-width:62ch; }
+  .strip { display:flex; flex-direction:column; gap:20px; }
+  .panel {
+    background:var(--panel); border:1px solid var(--rule-2); border-radius:4px;
+    padding:20px 22px 18px; display:flex; flex-direction:column; gap:12px;
+  }
+  .panel-head { display:flex; align-items:baseline; gap:12px; border-bottom:1px solid var(--rule-2); padding-bottom:10px; }
+  .num {
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; font-weight:500;
+    color:var(--ink-3); letter-spacing:0.08em; flex:none;
+  }
+  .beat {
+    font-family:Archivo, ui-sans-serif, system-ui, sans-serif; font-weight:500;
+    font-size:1.02rem; letter-spacing:-0.01em; margin:0;
+  }
+  figure { margin:0; }
+  .fig-scroll { overflow-x:auto; }
+  svg { display:block; width:100%; max-width:100%; height:auto; color:var(--ink-2); }
+  figcaption { font-size:0.93rem; color:var(--ink-2); margin-top:10px; max-width:64ch; }
+  code {
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.88em;
+    color:var(--ink); background:var(--rule-2); padding:0.1em 0.36em; border-radius:3px;
+  }
+
+  .box   { fill:none; stroke:currentColor; stroke-width:1.4; }
+  .box-f { fill:var(--panel); stroke:currentColor; stroke-width:1.4; }
+  .lbl   { fill:var(--ink); font-family:"IBM Plex Sans", sans-serif; font-size:13px; }
+  .lbl-s { fill:var(--ink-3); font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.04em; }
+  .arrow { stroke:currentColor; stroke-width:1.4; fill:none; }
+  .faint { opacity:0.4; }
+  .taint-stroke { stroke:var(--taint); stroke-width:1.6; fill:none; }
+  .taint-fill   { fill:var(--taint); }
+  .taint-box    { fill:var(--taint-w); stroke:var(--taint); stroke-width:1.4; }
+  .taint-lbl    { fill:var(--taint); font-family:"IBM Plex Mono", monospace; font-size:11px; font-weight:500; }
+  .memo-box     { fill:var(--memo-w); stroke:var(--memo); stroke-width:1.4; }
+  .memo-lbl     { fill:var(--memo); font-family:"IBM Plex Mono", monospace; font-size:11px; font-weight:500; }
+  .memo-stroke  { stroke:var(--memo); stroke-width:1.6; fill:none; }
+  .memo-fill    { fill:var(--memo); }
+  .dash  { stroke-dasharray:4 3; }
+  .border-line { stroke:currentColor; stroke-width:1.4; stroke-dasharray:2 4; }
+
+  .coda { border-top:1px solid var(--rule); padding-top:28px; display:flex; flex-direction:column; gap:14px; }
+  h2 {
+    font-family:Archivo, ui-sans-serif, system-ui, sans-serif; font-weight:700;
+    font-size:1.35rem; letter-spacing:-0.015em; margin:0; text-wrap:balance;
+  }
+  p { margin:0; max-width:64ch; }
+  p + p { margin-top:4px; }
+  .note { font-size:0.9rem; color:var(--ink-3); border-left:2px solid var(--rule); padding-left:14px; }
+
+  .backnav {
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px;
+    letter-spacing:0.04em; margin:0 0 -20px;
+  }
+  .backnav a { color:var(--ink-3); text-decoration:none; border-bottom:1px solid var(--rule); }
+  .backnav a:hover { color:var(--memo); border-bottom-color:var(--memo); }
+  .backnav a:focus-visible { outline:2px solid var(--memo); outline-offset:3px; }
+  .fig-scroll svg { min-width:520px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="backnav"><a href="index.html">&larr; all six mechanism strips</a></p>
+
+
+  <header>
+    <p class="eyebrow">Vörður &middot; mechanism strip 04</p>
+    <h1>What the Provider Sees Instead</h1>
+    <p class="standfirst">
+      When the model runs at a third party, every byte of every prompt crosses that boundary.
+      Personal data <em>the detectors recognize</em> is replaced before the crossing with
+      tokens, and coming back is not automatic: two separate gates decide, and both of them
+      default to no.
+    </p>
+  </header>
+
+  <div class="strip">
+
+    <!-- 1 -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="num">01</span>
+        <p class="beat">The boundary is the point</p>
+      </div>
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 640 254" role="img" aria-label="Five values enter deidentify at a default configuration. The email address and the phone number cross as tokens; the person name, the street address and the nickname cross in the clear, and the result reports clean.">
+            <defs>
+              <marker id="v1" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                <polygon points="0,0 8,4 0,8" fill="currentColor"></polygon>
+              </marker>
+            </defs>
+
+            <rect x="16" y="20" width="232" height="150" rx="3" class="box-f"></rect>
+            <text x="30" y="42" class="lbl-s">host content</text>
+            <line x1="30" y1="52" x2="234" y2="52" class="arrow dash faint"></line>
+            <text x="30" y="74" class="lbl-s">Marguerite Vasquez</text>
+            <text x="30" y="96" class="lbl-s">m.vasquez@clinic.example</text>
+            <text x="30" y="118" class="lbl-s">617-555-0142</text>
+            <text x="30" y="140" class="lbl-s">44 Sycamore Lane</text>
+            <text x="30" y="162" class="lbl-s">goes by Margo</text>
+
+            <line x1="260" y1="95" x2="310" y2="95" class="memo-stroke" marker-end="url(#v1)"></line>
+            <text x="285" y="85" class="memo-lbl" text-anchor="middle">deidentify</text>
+
+            <line x1="328" y1="8" x2="328" y2="200" class="border-line"></line>
+            <text x="336" y="20" class="lbl-s">boundary</text>
+
+            <rect x="340" y="20" width="284" height="150" rx="3" class="box-f"></rect>
+            <text x="354" y="42" class="lbl-s">what the provider sees</text>
+            <line x1="354" y1="52" x2="610" y2="52" class="arrow dash faint"></line>
+            <text x="354" y="74" class="taint-lbl">Marguerite Vasquez</text>
+            <text x="354" y="96" class="memo-lbl">[[GL:EMAIL:7QX4M2KPZ3T8W9F]]</text>
+            <text x="354" y="118" class="memo-lbl">[[GL:PHONE:K3D9R6TB1YH4M0C]]</text>
+            <text x="354" y="140" class="taint-lbl">44 Sycamore Lane</text>
+            <text x="354" y="162" class="taint-lbl">goes by Margo</text>
+
+            <rect x="16" y="186" width="232" height="46" rx="3" class="memo-box"></rect>
+            <text x="132" y="206" class="memo-lbl" text-anchor="middle">vault</text>
+            <text x="132" y="223" class="lbl-s" text-anchor="middle">token &harr; value, near side only</text>
+            <path d="M132 172 V186" class="memo-stroke faint"></path>
+
+            <text x="340" y="196" class="lbl-s">two of five substituted</text>
+            <text x="340" y="214" class="lbl-s faint">reason=&apos;clean&apos;, detection_incomplete=False</text>
+            <text x="340" y="234" class="taint-lbl">warnings: no detector for address, person</text>
+          </svg>
+        </div>
+        <figcaption>
+          The mapping never crosses, and tokens are stable within a session, so the model can
+          follow one person across a conversation without being told who. The three values that
+          crossed are a default configuration, not a fault: <code>DEFAULT_TOKENIZE_CLASSES</code>
+          includes <code>person</code> and <code>address</code>,
+          <code>PrivacyConfig().detectors</code> is empty, and neither class has a structural
+          pattern, because inferring a name from free text is labelling from content. The result
+          reads <code>clean</code>; the warning names the two classes. Coverage comes from
+          <code>PrivacyConfig(detectors=...)</code> or seeded values.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- 2 -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="num">02</span>
+        <p class="beat">The token is shaped to survive the trip</p>
+      </div>
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 640 204" role="img" aria-label="The token format uses colons to break it into short runs so the entropy scanner does not flag it, and its body carries error-correcting symbols.">
+            <text x="16" y="24" class="lbl-s">anatomy</text>
+            <rect x="16" y="36" width="380" height="44" rx="3" class="memo-box"></rect>
+            <text x="30" y="64" class="memo-lbl" style="font-size:13px">[[GL: EMAIL : 7QX4M2KPZ3T8W9F ]]</text>
+
+            <path d="M96 88 V106 H60" class="arrow faint"></path>
+            <text x="16" y="122" class="lbl-s">class, so a reader</text>
+            <text x="16" y="138" class="lbl-s">knows what was withheld</text>
+
+            <path d="M300 88 V106 H340" class="arrow faint"></path>
+            <text x="340" y="122" class="lbl-s">12 payload symbols + 3 parity</text>
+            <text x="340" y="138" class="lbl-s">one mangled symbol recovered</text>
+            <text x="340" y="154" class="taint-lbl">two refused, never guessed</text>
+
+            <line x1="16" y1="170" x2="624" y2="170" class="arrow dash faint"></line>
+            <text x="16" y="180" class="lbl-s">the colons are load-bearing: they keep every run to 15 characters,</text>
+            <text x="16" y="196" class="lbl-s">below the entropy scanner&apos;s 20-character floor</text>
+          </svg>
+        </div>
+        <figcaption>
+          The body is a Reed-Solomon codeword, twelve payload symbols and three parity. One
+          damaged symbol still resolves; two are refused rather than resolved to somebody else.
+          The colons keep every run to 15 characters, and the entropy scanner questions only runs
+          of <code>_ENTROPY_MIN_LENGTH</code>, 20, in <code>security/outbound_dlp.py</code>, so a
+          body full of real tokens scans clean with five characters of margin.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- 3 -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="num">03</span>
+        <p class="beat">Coming back is two separate permissions</p>
+      </div>
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 640 222" role="img" aria-label="Restoration passes through two independent deny-by-default gates: a per-destination policy and a per-tool-field policy.">
+            <defs>
+              <marker id="v3" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                <polygon points="0,0 8,4 0,8" fill="currentColor"></polygon>
+              </marker>
+            </defs>
+            <rect x="16" y="60" width="132" height="52" rx="3" class="box-f"></rect>
+            <text x="82" y="92" class="memo-lbl" text-anchor="middle">a token</text>
+
+            <line x1="160" y1="86" x2="200" y2="86" class="arrow" marker-end="url(#v3)"></line>
+
+            <rect x="212" y="42" width="176" height="88" rx="3" class="box-f"></rect>
+            <text x="300" y="66" class="lbl" text-anchor="middle">destination_policy</text>
+            <text x="300" y="88" class="lbl-s" text-anchor="middle">which classes may</text>
+            <text x="300" y="104" class="lbl-s" text-anchor="middle">reach this channel</text>
+            <text x="300" y="122" class="taint-lbl" text-anchor="middle">defaults to nothing</text>
+
+            <line x1="400" y1="86" x2="440" y2="86" class="arrow" marker-end="url(#v3)"></line>
+
+            <rect x="452" y="42" width="172" height="88" rx="3" class="box-f"></rect>
+            <text x="538" y="66" class="lbl" text-anchor="middle">restore_policy</text>
+            <text x="538" y="88" class="lbl-s" text-anchor="middle">which field of which</text>
+            <text x="538" y="104" class="lbl-s" text-anchor="middle">tool may hold it</text>
+            <text x="538" y="122" class="taint-lbl" text-anchor="middle">defaults to nothing</text>
+
+            <text x="16" y="152" class="lbl-s">including the user: being a person on a screen is not, by itself, an entitlement</text>
+
+            <line x1="16" y1="166" x2="624" y2="166" class="arrow dash faint"></line>
+            <text x="16" y="188" class="lbl-s">fresh config, every destination:</text>
+            <text x="212" y="188" class="taint-lbl">mail [redacted:email]</text>
+            <text x="16" y="208" class="lbl-s">destination_policy={TOOL: EMAIL}:</text>
+            <text x="212" y="208" class="memo-lbl">to tool, the real address &middot; to user, still [redacted:email]</text>
+          </svg>
+        </div>
+        <figcaption>
+          Who may see it and where may it be written are different questions, so there are two
+          gates: <code>destination_policy</code> names the classes a channel may receive,
+          <code>restore_policy</code> names the field of the tool that may hold one. Every
+          destination starts at nothing, <code>USER</code> included, because a channel is not an
+          entitlement. Opening one gate does not open the other, and
+          <code>allowed_classes</code> alone changes nothing while the destination gate is shut.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- 4 -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="num">04</span>
+        <p class="beat">One call, two different answers</p>
+      </div>
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 640 176" role="img" aria-label="In the same tool call the recipient address is restored because a rule permits it, while the body receives a redaction marker because no rule covers it.">
+            <text x="16" y="24" class="lbl-s">send_email, after restoration</text>
+
+            <rect x="16" y="36" width="608" height="52" rx="3" class="memo-box"></rect>
+            <text x="32" y="58" class="lbl-s">/to/*/address</text>
+            <text x="32" y="78" class="memo-lbl" style="font-size:12px">jane@clinic.example</text>
+            <text x="608" y="68" class="memo-lbl" text-anchor="end">rule permits EMAIL here</text>
+
+            <rect x="16" y="98" width="608" height="52" rx="3" class="taint-box"></rect>
+            <text x="32" y="120" class="lbl-s">/body</text>
+            <text x="32" y="140" class="taint-lbl" style="font-size:12px">see attached [redacted:email]</text>
+            <text x="608" y="130" class="taint-lbl" text-anchor="end">no rule covers this field</text>
+
+            <text x="16" y="170" class="lbl-s">the marker says what was withheld, which is more use to a reader than a blank</text>
+          </svg>
+        </div>
+        <figcaption>
+          Blind restoration would put a real address into a message body the model happened to
+          mention it in, laundering it past the egress checks. Restoring per field is what
+          stops that.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- 5 -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="num">05</span>
+        <p class="beat">Some things do not get a token at all</p>
+      </div>
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 640 180" role="img" aria-label="Ordinary identifier classes are tokenized, while credentials are refused outright because issuing a token would imply the value can come back.">
+            <defs>
+              <marker id="v5m" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                <polygon points="0,0 8,4 0,8" class="memo-fill"></polygon>
+              </marker>
+              <marker id="v5t" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                <polygon points="0,0 8,4 0,8" class="taint-fill"></polygon>
+              </marker>
+            </defs>
+
+            <rect x="16" y="26" width="176" height="44" rx="3" class="box"></rect>
+            <text x="104" y="53" class="lbl-s" text-anchor="middle">email, phone, card, SSN, IBAN</text>
+            <line x1="204" y1="48" x2="268" y2="48" class="memo-stroke" marker-end="url(#v5m)"></line>
+            <text x="236" y="38" class="memo-lbl" text-anchor="middle">tokenize</text>
+            <rect x="280" y="26" width="200" height="44" rx="3" class="memo-box"></rect>
+            <text x="380" y="53" class="memo-lbl" text-anchor="middle">crosses as a placeholder</text>
+
+            <rect x="16" y="92" width="176" height="44" rx="3" class="box"></rect>
+            <text x="104" y="119" class="lbl-s" text-anchor="middle">API key, private key</text>
+            <line x1="204" y1="114" x2="268" y2="114" class="taint-stroke" marker-end="url(#v5t)"></line>
+            <text x="236" y="104" class="taint-lbl" text-anchor="middle">refuse</text>
+            <rect x="280" y="92" width="200" height="44" rx="3" class="taint-box"></rect>
+            <text x="380" y="119" class="taint-lbl" text-anchor="middle">does not cross at all</text>
+
+            <text x="496" y="106" class="lbl-s">a token implies</text>
+            <text x="496" y="122" class="lbl-s">it can come back</text>
+
+            <text x="16" y="148" class="taint-lbl">Guard.deidentify returns allowed=False, denied=[CREDENTIAL]</text>
+            <text x="16" y="164" class="taint-lbl">&quot;Class &apos;credential&apos; must not cross the model boundary&quot;</text>
+          </svg>
+        </div>
+        <figcaption>
+          Refused, not tokenized: <code>Guard.deidentify</code> returns
+          <code>allowed=False</code> and <code>denied=[CREDENTIAL]</code>, with the reason
+          <code>Class &apos;credential&apos; must not cross the model boundary</code>. The
+          content comes back unchanged, because nothing was substituted. Refusing is the
+          library&apos;s answer; not sending it is the host&apos;s part, the same contract as
+          every other refusal here. A token would imply the
+          value can come back, and a model has no use for a credential; one in a prompt the host
+          assembled is a bug in the host. Refusal does not depend on length once the shape is
+          known: a 20-character AWS key, a 15-character Slack-shaped token, a 40-character GitHub
+          token, all refused. The 20-character floor belongs to the entropy path, for a secret
+          whose shape nothing recognizes. The left column is every class a default configuration
+          matches, all structural.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- 6 -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="num">06</span>
+        <p class="beat">When it cannot tell, it stops</p>
+      </div>
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 640 168" role="img" aria-label="A token that cannot be resolved refuses the whole call rather than dispatching partly resolved arguments.">
+            <defs>
+              <marker id="v6t" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                <polygon points="0,0 8,4 0,8" class="taint-fill"></polygon>
+              </marker>
+            </defs>
+            <rect x="16" y="26" width="280" height="52" rx="3" class="box-f"></rect>
+            <text x="32" y="48" class="lbl-s">arguments to dispatch</text>
+            <text x="32" y="68" class="taint-lbl">[[GL:EMAIL:7QX4M2KP&hellip;]] damaged</text>
+
+            <line x1="308" y1="52" x2="368" y2="52" class="taint-stroke" marker-end="url(#v6t)"></line>
+
+            <rect x="380" y="26" width="244" height="52" rx="3" class="taint-box"></rect>
+            <text x="502" y="57" class="taint-lbl" text-anchor="middle" style="font-size:12px">the whole call is refused</text>
+
+            <line x1="16" y1="98" x2="624" y2="98" class="arrow dash faint"></line>
+            <text x="16" y="122" class="lbl-s">the alternative was dispatching a half-resolved call: some fields real,</text>
+            <text x="16" y="140" class="lbl-s">one field still carrying a live-looking placeholder, and nobody told</text>
+            <text x="16" y="158" class="taint-lbl">refusing is the smaller failure</text>
+          </svg>
+        </div>
+        <figcaption>
+          The same rule covers a forged token, a token from a session that has ended, and one
+          the model damaged beyond correction. None of them resolve to a guess.
+        </figcaption>
+      </figure>
+    </section>
+
+  </div>
+
+  <section class="coda">
+    <h2>The honest edges</h2>
+    <p>
+      <strong>The tokens are pseudonyms, not redaction.</strong> Everything around a token
+      crosses as written. A provider that sees the same stable placeholder beside
+      &ldquo;referral&rdquo;, a clinic name and a date has most of what it needs, and the
+      stability that lets the model reason about one person across a conversation is the same
+      property that makes those mentions linkable. What the vault withholds is the identifier.
+      It does not withhold the context, and it is not anonymization.
+    </p>
+    <p>
+      <strong>It cannot find what nothing looks for.</strong> Structural patterns and
+      host-declared values are exact. A name or a street address with neither, and no registered
+      detector, crosses in the clear. Be careful which signal you read for it.
+      <code>detection_incomplete</code> is not the one: that flag is set when a registered
+      detector reports its own coverage was partial, and a detector that was never registered
+      reports nothing, so panel 01 comes back <code>clean</code> with the flag unset. The
+      warning is the one. It names every configured class that has no structural pattern, no
+      seeded value and no detector behind it, which at a default configuration is
+      <code>person</code> and <code>address</code>.
+    </p>
+    <p>
+      <strong>The invariant is narrower than &ldquo;only issued tokens resolve&rdquo;.</strong>
+      Because the body is error-correcting, strings within one symbol of an issued codeword
+      also resolve, and those were never issued. What can be promised is that only exact
+      codewords and that explicit radius resolve at all.
+    </p>
+    <p>
+      <strong>It protects the paths that go through it.</strong> Content sent to a provider
+      without calling <code>deidentify</code> is not covered, in the same way the rest of the
+      library governs the paths routed through it.
+    </p>
+    <p class="note">
+      Mechanism only. <code>deidentify</code>, <code>reidentify</code>,
+      <code>prepare_tool_call</code>, <code>restore_policy</code> and
+      <code>destination_policy</code> are real. Token bodies and addresses are invented. No
+      benchmark numbers appear, because numbers go stale and mechanisms do not. Verified against
+      Vörður 2.0.0, commit <code>a0e51be</code>. API names, policy fields and orderings can
+      change too, not only numbers.
+    </p>
+  </section>
+
+</div>
+</body>
+</html>
