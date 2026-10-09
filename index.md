@@ -8,8 +8,8 @@ Vörður applies security controls around language models. It records where inco
 
 These pages show selected behavior through static examples. The demonstrations run in the browser and do not execute the Vörður library.
 
-- [Follow an attack through the controls](demo/vordur_demos.html)
-- [Explore the system map](demo/vordur_surface_map.html)
-- [Read the visual mechanism guide](docs/mechanisms/)
+- [Follow an attack through the controls](https://mhcoen.github.io/vordur/demo/vordur_demos.html)
+- [Explore the system map](https://mhcoen.github.io/vordur/demo/vordur_surface_map.html)
+- [Read the visual mechanism guide](https://mhcoen.github.io/vordur/docs/mechanisms/)
 
 For access or licensing inquiries, contact [Michael H. Coen](mailto:mhcoen@alum.mit.edu).
